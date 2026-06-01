@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Control Financiero | Dinero Prestado</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+
+<body>
+
+<div class="container">
+
+  <header>
+    <h1>💰 Control de Dinero Prestado</h1>
+    <p>Control simple de préstamos, intereses, cuotas mensuales y fechas de pago.</p>
+  </header>
+
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <div class="alert">{{ messages[0] }}</div>
+    {% endif %}
+  {% endwith %}
+
+  <section class="dashboard">
+    <div class="card">
+      <h3>Total prestado</h3>
+      <strong>${{ "{:,.0f}".format(total_prestado).replace(",", ".") }}</strong>
+    </div>
+
+    <div class="card">
+      <h3>Total mensual esperado</h3>
+      <strong>${{ "{:,.0f}".format(total_mensual).replace(",", ".") }}</strong>
+    </div>
+
+    <div class="card">
+      <h3>Total con intereses</h3>
+      <strong>${{ "{:,.0f}".format(total_con_interes).replace(",", ".") }}</strong>
+    </div>
+
+    <div class="card">
+      <h3>Personas registradas</h3>
+      <strong>{{ total_personas }}</strong>
+    </div>
+  </section>
+
+  <section class="main-actions">
+    <button class="btn-primary btn-open-modal" onclick="abrirModal()">➕ Agregar persona</button>
+  </section>
+
+  <section class="card">
+    <h2 class="section-title">📋 Personas registradas</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Seleccionar</th>
+          <th>Persona</th>
+          <th>Prestado</th>
+          <th>Meses</th>
+          <th>Interés</th>
+          <th>Total con interés</th>
+          <th>Valor mensual</th>
+          <th>Fecha pago</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for p in prestamos %}
+        <tr>
+          <td><input type="radio" name="registro_seleccionado"></td>
+
+          <td>{{ p.nombre }}</td>
+
+          <td>${{ "{:,.0f}".format(p.valor_prestado).replace(",", ".") }}</td>
+
+          <td>{{ p.meses }}</td>
+
+          <td>{{ p.interes }}%</td>
+
+          <td>${{ "{:,.0f}".format(p.total_con_interes).replace(",", ".") }}</td>
+
+          <td>${{ "{:,.0f}".format(p.valor_mensual).replace(",", ".") }}</td>
+
+          <td>{{ p.fecha_pago }}</td>
+
+          <td>
+            {% if p.estado == "pagado" %}
+              <span class="status green">Pagado</span>
+            {% else %}
+              <span class="status red">Pendiente</span>
+            {% endif %}
+          </td>
+
+          <td class="actions">
+            <a href="{{ url_for('cambiar_estado', id=p.id, estado='pagado') }}" class="btn-paid">Pagó</a>
+            <a href="{{ url_for('cambiar_estado', id=p.id, estado='pendiente') }}" class="btn-pending">No pagó</a>
+
+            <form action="{{ url_for('borrar', id=p.id) }}" method="POST">
+              <button 
+                type="submit" 
+                class="btn-delete"
+                onclick="return confirm('¿Seguro que deseas borrar este registro?')">
+                Borrar
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="10" class="empty">No hay registros todavía.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+</div>
+
+<div id="modalPersona" class="modal">
+  <div class="modal-content">
+    <button class="modal-close" onclick="cerrarModal()">×</button>
+
+    <h2 class="section-title">➕ Agregar nueva persona</h2>
+
+    <form action="{{ url_for('crear') }}" method="POST">
+
+      <label>Nombre de la persona</label>
+      <input type="text" name="nombre" required placeholder="Ej: Julian">
+
+      <label>Valor que pide prestado</label>
+      <input type="number" name="valor_prestado" id="valor_prestado" required placeholder="Ej: 500000">
+
+      <label>Cantidad de meses</label>
+      <input type="number" name="meses" id="meses" required placeholder="Ej: 5">
+
+      <label>Interés total (%)</label>
+      <input type="number" step="0.01" name="interes" id="interes" required placeholder="Ej: 10">
+
+      <label>Fecha de pago</label>
+      <input type="date" name="fecha_pago" required>
+
+      <div class="resultado-calculo">
+        <p>Total con interés:</p>
+        <strong id="total_interes">$0</strong>
+
+        <p>Valor mensual a pagar:</p>
+        <strong id="valor_mensual">$0</strong>
+      </div>
+
+      <button type="submit" class="btn-primary">Guardar información</button>
+    </form>
+  </div>
+</div>
+
+<script>
+  function abrirModal() {
+    document.getElementById("modalPersona").style.display = "flex";
+  }
+
+  function cerrarModal() {
+    document.getElementById("modalPersona").style.display = "none";
+  }
+
+  function formatoCOP(valor) {
+    return new Intl.NumberFormat("es-CO", {
+      style: "currency",
+      currency: "COP",
+      maximumFractionDigits: 0
+    }).format(valor);
+  }
+
+  function calcularMensualidad() {
+    const valor = parseFloat(document.getElementById("valor_prestado").value) || 0;
+    const meses = parseInt(document.getElementById("meses").value) || 0;
+    const interes = parseFloat(document.getElementById("interes").value) || 0;
+
+    const total = valor + (valor * interes / 100);
+    const mensual = meses > 0 ? total / meses : 0;
+
+    document.getElementById("total_interes").innerText = formatoCOP(total);
+    document.getElementById("valor_mensual").innerText = formatoCOP(mensual);
+  }
+
+  document.getElementById("valor_prestado").addEventListener("input", calcularMensualidad);
+  document.getElementById("meses").addEventListener("input", calcularMensualidad);
+  document.getElementById("interes").addEventListener("input", calcularMensualidad);
+
+  window.onclick = function(event) {
+    const modal = document.getElementById("modalPersona");
+    if (event.target === modal) {
+      cerrarModal();
+    }
+  }
+</script>
+
+</body>
+</html>
