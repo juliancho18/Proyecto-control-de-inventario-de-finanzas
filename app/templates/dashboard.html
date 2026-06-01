@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard inteligente</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+
+<div class="container">
+
+  <header>
+    <h1>📈 Dashboard inteligente</h1>
+    <p>Resumen general del estado financiero del sistema.</p>
+  </header>
+
+  <section class="main-actions">
+    <a href="{{ url_for('menu') }}" class="btn-primary">🏠 Menú principal</a>
+    <a href="{{ url_for('prestamos') }}" class="btn-admin">💰 Préstamos</a>
+    <a href="{{ url_for('servicios') }}" class="btn-admin">🧾 Servicios</a>
+  </section>
+
+  <section class="dashboard">
+    <div class="card">
+      <h3>Total préstamos</h3>
+      <strong>${{ "{:,.0f}".format(total_prestamos).replace(",", ".") }}</strong>
+    </div>
+
+    <div class="card">
+      <h3>Total servicios</h3>
+      <strong>${{ "{:,.0f}".format(total_servicios).replace(",", ".") }}</strong>
+    </div>
+
+    <div class="card">
+      <h3>Total general controlado</h3>
+      <strong>${{ "{:,.0f}".format(total_general).replace(",", ".") }}</strong>
+    </div>
+
+    <div class="card">
+      <h3>Cuotas pagadas</h3>
+      <strong>{{ cuotas_pagadas }}</strong>
+    </div>
+  </section>
+
+  <section class="dashboard">
+    <div class="card">
+      <h3>Cuotas vencidas</h3>
+      <strong>{{ cuotas_vencidas }}</strong>
+    </div>
+
+    <div class="card">
+      <h3>Próximas a vencer</h3>
+      <strong>{{ cuotas_proximas }}</strong>
+    </div>
+
+    <div class="card">
+      <h3>Cuotas pendientes</h3>
+      <strong>{{ cuotas_pendientes }}</strong>
+    </div>
+
+    <div class="card">
+      <h3>Nivel de alerta</h3>
+      {% if cuotas_vencidas > 0 %}
+        <strong class="danger-text">Alto</strong>
+      {% elif cuotas_proximas > 0 %}
+        <strong class="warning-text">Medio</strong>
+      {% else %}
+        <strong class="success-text">Normal</strong>
+      {% endif %}
+    </div>
+  </section>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Menú principal</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+
+<div class="container">
+
+  <header>
+    <h1>📊 Panel principal</h1>
+    <p>Selecciona el módulo que deseas gestionar.</p>
+  </header>
+
+  <section class="menu-grid">
+    <a href="{{ url_for('prestamos') }}" class="menu-card">
+      <h2>💰 Préstamos</h2>
+      <p>Control de dinero prestado, cuotas, intereses y vencimientos.</p>
+    </a>
+
+    <a href="{{ url_for('servicios') }}" class="menu-card">
+      <h2>🧾 Servicios</h2>
+      <p>Control de recibos, servicios, cuotas mensuales y pagos pendientes.</p>
+    </a>
+
+    <a href="{{ url_for('dashboard') }}" class="menu-card">
+      <h2>📈 Dashboard inteligente</h2>
+      <p>Resumen visual de préstamos, servicios, pagos, vencimientos y alertas.</p>
+    </a>
+  </section>
+
+  <section class="main-actions">
+    <a href="{{ url_for('logout') }}" class="btn-delete">Cerrar sesión</a>
+  </section>
+
+</div>
+
+</body>
+</html>

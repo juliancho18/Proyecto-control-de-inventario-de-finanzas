@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Control Financiero | Dinero Prestado</title>
+  <title>Préstamos | Control Financiero</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 </head>
 
@@ -45,7 +45,9 @@
 
   <section class="main-actions">
     <button class="btn-primary btn-open-modal" onclick="abrirModalCrear()">➕ Agregar persona</button>
-    <a href="{{ url_for('admin') }}" class="btn-admin">⚙️ Admin base de datos</a>
+    <a href="{{ url_for('menu') }}" class="btn-admin">🏠 Menú</a>
+    <a href="{{ url_for('dashboard') }}" class="btn-admin">📈 Dashboard</a>
+    <a href="{{ url_for('logout') }}" class="btn-delete">Cerrar sesión</a>
   </section>
 
   <section class="card">
@@ -87,10 +89,13 @@
           <td>{{ p.cuotas_vencidas }}</td>
 
           <td class="actions">
-            <a href="{{ url_for('detalle', id=p.id) }}" class="btn-edit">Ver cuotas</a>
+            <a href="{{ url_for('detalle_prestamo', id=p.id) }}" class="btn-edit">Ver cuotas</a>
 
-            <form action="{{ url_for('borrar', id=p.id) }}" method="POST">
-              <button class="btn-delete" onclick="return confirm('¿Seguro que deseas borrar este préstamo y todas sus cuotas?')">
+            <form action="{{ url_for('borrar', tipo='prestamo', id=p.id) }}" method="POST">
+              <button 
+                class="btn-delete" 
+                type="submit"
+                onclick="return confirm('¿Seguro que deseas borrar este préstamo y todas sus cuotas?')">
                 Borrar
               </button>
             </form>
@@ -113,18 +118,19 @@
 
     <h2 class="section-title">➕ Agregar nueva persona</h2>
 
-    <form action="{{ url_for('crear') }}" method="POST">
+    <form action="{{ url_for('crear_prestamo') }}" method="POST">
+
       <label>Nombre de la persona</label>
-      <input type="text" name="nombre" required>
+      <input type="text" name="nombre" required placeholder="Ej: Julian">
 
       <label>Valor que pide prestado</label>
-      <input type="number" name="valor_prestado" id="valor_prestado" required>
+      <input type="number" name="valor_prestado" id="valor_prestado" required placeholder="Ej: 1000000">
 
       <label>Cantidad de meses</label>
-      <input type="number" name="meses" id="meses" required>
+      <input type="number" name="meses" id="meses" required placeholder="Ej: 6">
 
       <label>Interés total (%)</label>
-      <input type="number" step="0.01" name="interes" id="interes" required>
+      <input type="number" step="0.01" name="interes" id="interes" required placeholder="Ej: 5">
 
       <label>Fecha de registro</label>
       <input type="date" name="fecha_registro" required>
@@ -177,6 +183,13 @@
   document.getElementById("valor_prestado").addEventListener("input", calcularMensualidad);
   document.getElementById("meses").addEventListener("input", calcularMensualidad);
   document.getElementById("interes").addEventListener("input", calcularMensualidad);
+
+  window.onclick = function(event) {
+    const modal = document.getElementById("modalCrear");
+    if (event.target === modal) {
+      cerrarModalCrear();
+    }
+  }
 </script>
 
 </body>

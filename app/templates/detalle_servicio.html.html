@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Detalle de servicio</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+
+<body>
+
+<div class="container">
+
+  <header>
+    <h1>🧾 Cuotas de {{ servicio.nombre_servicio }}</h1>
+    <p>Proveedor: {{ servicio.proveedor }}</p>
+  </header>
+
+  <section class="main-actions">
+    <a href="{{ url_for('servicios') }}" class="btn-primary">⬅ Volver</a>
+  </section>
+
+  <section class="card">
+    <h2 class="section-title">Plan de pagos del servicio</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Cuota</th>
+          <th>Fecha pago</th>
+          <th>Valor base</th>
+          <th>Mora / incremento</th>
+          <th>Total cuota</th>
+          <th>Estado</th>
+          <th>Días vencidos</th>
+          <th>Fecha pagada</th>
+          <th>Editar</th>
+          <th>Pago</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for c in cuotas %}
+        <tr>
+          <form action="{{ url_for('editar_cuota', tipo='servicio', id=c.id) }}" method="POST">
+            <td>{{ c.numero_cuota }}/{{ servicio.meses }}</td>
+
+            <td><input type="date" name="fecha_pago" value="{{ c.fecha_pago }}"></td>
+
+            <td>${{ "{:,.0f}".format(c.valor_base).replace(",", ".") }}</td>
+
+            <td><input type="number" name="incremento_mora" value="{{ c.incremento_mora }}" step="0.01"></td>
+
+            <td>${{ "{:,.0f}".format(c.valor_total).replace(",", ".") }}</td>
+
+            <td>
+              <select name="estado">
+                <option value="pendiente" {% if c.estado == "pendiente" %}selected{% endif %}>Pendiente</option>
+                <option value="pagado" {% if c.estado == "pagado" %}selected{% endif %}>Pagado</option>
+              </select>
+              <span class="status {{ c.color }}">{{ c.estado_texto }}</span>
+            </td>
+
+            <td>{{ c.dias_vencidos }}</td>
+            <td>{{ c.fecha_pagada or "Sin pagar" }}</td>
+
+            <td><button type="submit" class="btn-edit">Guardar</button></td>
+            <td><a href="{{ url_for('pagar', tipo='servicio', id=c.id) }}" class="btn-paid">Marcar pago</a></td>
+          </form>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Ingreso | Control Financiero</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+
+<div class="login-wrapper">
+  <div class="login-card">
+    <h1>🔐 Control Financiero</h1>
+    <p>Ingreso seguro al sistema</p>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="alert">{{ messages[0] }}</div>
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST">
+      <label>Usuario</label>
+      <input type="text" name="usuario" required placeholder="admin">
+
+      <label>Contraseña</label>
+      <input type="password" name="password" required placeholder="123456789">
+
+      <button class="btn-primary" type="submit">Ingresar</button>
+    </form>
+  </div>
+</div>
+
+</body>
+</html>
