@@ -273,3 +273,14 @@ form .btn-primary {
   font-size: 1.2rem;
   margin-top: 4px;
 }
+.btn-admin {
+  background: #a855f7;
+  color: white;
+  margin-left: 10px;
+}
+
+.blue {
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+  border: 1px solid #38bdf8;
+}

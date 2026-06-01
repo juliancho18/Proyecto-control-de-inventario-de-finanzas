@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin | Base de Datos</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+
+<body>
+
+<div class="container">
+
+  <header>
+    <h1>⚙️ Administración general</h1>
+    <p>Vista manual de préstamos y cuotas creadas automáticamente.</p>
+  </header>
+
+  <section class="main-actions">
+    <a href="{{ url_for('home') }}" class="btn-primary">⬅ Volver al inicio</a>
+  </section>
+
+  <section class="card">
+    <h2 class="section-title">Préstamos registrados</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Nombre</th>
+          <th>Prestado</th>
+          <th>Meses</th>
+          <th>Interés</th>
+          <th>Día pago</th>
+          <th>Registro</th>
+          <th>Mensual</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for p in prestamos %}
+        <tr>
+          <td>{{ p.id }}</td>
+          <td>{{ p.nombre }}</td>
+          <td>${{ "{:,.0f}".format(p.valor_prestado).replace(",", ".") }}</td>
+          <td>{{ p.meses }}</td>
+          <td>{{ p.interes }}%</td>
+          <td>{{ p.dia_pago }}</td>
+          <td>{{ p.fecha_registro }}</td>
+          <td>${{ "{:,.0f}".format(p.valor_mensual_base).replace(",", ".") }}</td>
+          <td>${{ "{:,.0f}".format(p.total_con_interes).replace(",", ".") }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <br>
+
+  <section class="card">
+    <h2 class="section-title">Cuotas generadas</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Persona</th>
+          <th>Cuota</th>
+          <th>Fecha pago</th>
+          <th>Base</th>
+          <th>Mora</th>
+          <th>Total</th>
+          <th>Estado</th>
+          <th>Fecha pagada</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for c in cuotas %}
+        <tr>
+          <td>{{ c.nombre }}</td>
+          <td>{{ c.numero_cuota }}</td>
+          <td>{{ c.fecha_pago }}</td>
+          <td>${{ "{:,.0f}".format(c.valor_base).replace(",", ".") }}</td>
+          <td>${{ "{:,.0f}".format(c.incremento_mora).replace(",", ".") }}</td>
+          <td>${{ "{:,.0f}".format(c.valor_total).replace(",", ".") }}</td>
+          <td>{{ c.estado }}</td>
+          <td>{{ c.fecha_pagada or "Sin pagar" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+</div>
+
+</body>
+</html>
