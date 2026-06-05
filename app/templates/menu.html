@@ -2,37 +2,251 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Menú principal</title>
+  <title>Panel Principal | Angi Tatiana</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+
+  <style>
+    body {
+      min-height: 100vh;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at top left, rgba(56,189,248,0.22), transparent 32%),
+        radial-gradient(circle at bottom right, rgba(168,85,247,0.20), transparent 35%),
+        #020617;
+    }
+
+    .menu-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      position: relative;
+    }
+
+    .menu-page::before {
+      content: "";
+      position: absolute;
+      width: 900px;
+      height: 900px;
+      background: linear-gradient(135deg, rgba(56,189,248,0.12), rgba(168,85,247,0.10));
+      border-radius: 50%;
+      filter: blur(90px);
+      animation: pulseOrb 8s infinite alternate;
+    }
+
+    @keyframes pulseOrb {
+      from { transform: scale(0.9) translate(-60px, -30px); }
+      to { transform: scale(1.1) translate(60px, 30px); }
+    }
+
+    .panel {
+      width: min(1200px, 95%);
+      position: relative;
+      z-index: 2;
+      text-align: center;
+    }
+
+    .panel-header {
+      margin-bottom: 45px;
+    }
+
+    .panel-header h1 {
+      font-size: 3rem;
+      font-weight: 900;
+      background: linear-gradient(90deg, #38bdf8, #a855f7, #22d3ee);
+      background-size: 200%;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: shineText 4s linear infinite;
+    }
+
+    @keyframes shineText {
+      from { background-position: 0%; }
+      to { background-position: 200%; }
+    }
+
+    .panel-header p {
+      color: #cbd5e1;
+      margin-top: 12px;
+      font-size: 1rem;
+    }
+
+    .menu-grid-future {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 28px;
+      perspective: 1000px;
+    }
+
+    .future-card {
+      min-height: 260px;
+      padding: 34px;
+      border-radius: 28px;
+      background: linear-gradient(145deg, rgba(15,23,42,0.92), rgba(30,41,59,0.72));
+      border: 1px solid rgba(56,189,248,0.30);
+      box-shadow:
+        0 0 30px rgba(56,189,248,0.08),
+        inset 0 0 35px rgba(255,255,255,0.03);
+      color: white;
+      text-decoration: none;
+      position: relative;
+      overflow: hidden;
+      transform-style: preserve-3d;
+      animation: floatCard 5s ease-in-out infinite;
+    }
+
+    .future-card:nth-child(2) {
+      animation-delay: 0.8s;
+    }
+
+    .future-card:nth-child(3) {
+      animation-delay: 1.5s;
+    }
+
+    @keyframes floatCard {
+      0%, 100% { transform: translateY(0) rotateX(0deg) rotateY(0deg); }
+      50% { transform: translateY(-14px) rotateX(4deg) rotateY(-4deg); }
+    }
+
+    .future-card::before {
+      content: "";
+      position: absolute;
+      inset: -2px;
+      background: linear-gradient(120deg, transparent, rgba(56,189,248,0.35), transparent);
+      transform: translateX(-120%);
+      transition: 0.8s;
+    }
+
+    .future-card:hover::before {
+      transform: translateX(120%);
+    }
+
+    .future-card:hover {
+      transform: translateY(-18px) scale(1.03);
+      border-color: #38bdf8;
+      box-shadow:
+        0 0 45px rgba(56,189,248,0.32),
+        0 0 80px rgba(168,85,247,0.15);
+    }
+
+    .icon {
+      width: 78px;
+      height: 78px;
+      margin: 0 auto 22px;
+      display: grid;
+      place-items: center;
+      border-radius: 24px;
+      font-size: 2.5rem;
+      background: linear-gradient(135deg, rgba(56,189,248,0.18), rgba(168,85,247,0.20));
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: inset 0 0 22px rgba(255,255,255,0.05);
+    }
+
+    .future-card h2 {
+      color: #38bdf8;
+      font-size: 1.5rem;
+      margin-bottom: 14px;
+    }
+
+    .future-card p {
+      color: #cbd5e1;
+      line-height: 1.5;
+      font-size: 0.95rem;
+    }
+
+    .chip {
+      margin-top: 25px;
+      display: inline-block;
+      padding: 9px 15px;
+      border-radius: 999px;
+      background: rgba(56,189,248,0.10);
+      color: #7dd3fc;
+      border: 1px solid rgba(56,189,248,0.25);
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .logout-area {
+      margin-top: 40px;
+    }
+
+    .btn-logout-future {
+      background: linear-gradient(135deg, #ef4444, #991b1b);
+      color: white;
+      padding: 13px 24px;
+      border-radius: 16px;
+      font-weight: 800;
+      text-decoration: none;
+      box-shadow: 0 0 22px rgba(239,68,68,0.22);
+    }
+
+    @media (max-width: 950px) {
+      body {
+        overflow: auto;
+      }
+
+      .menu-grid-future {
+        grid-template-columns: 1fr;
+      }
+
+      .panel-header h1 {
+        font-size: 2.2rem;
+      }
+    }
+  </style>
 </head>
+
 <body>
 
-<div class="container">
+<div class="menu-page">
 
-  <header>
-    <h1>📊 Panel principal</h1>
-    <p>Selecciona el módulo que deseas gestionar.</p>
-  </header>
+  <section class="panel">
 
-  <section class="menu-grid">
-    <a href="{{ url_for('prestamos') }}" class="menu-card">
-      <h2>💰 Préstamos</h2>
-      <p>Control de dinero prestado, cuotas, intereses y vencimientos.</p>
-    </a>
+    <div class="panel-header">
+      <h1>📊 Panel Principal</h1>
+      <p>Mi Base de Datos Angi Tatiana · Selecciona el módulo que deseas gestionar</p>
+    </div>
 
-    <a href="{{ url_for('servicios') }}" class="menu-card">
-      <h2>🧾 Servicios</h2>
-      <p>Control de recibos, servicios, cuotas mensuales y pagos pendientes.</p>
-    </a>
+    <div class="menu-grid-future">
 
-    <a href="{{ url_for('dashboard') }}" class="menu-card">
-      <h2>📈 Dashboard inteligente</h2>
-      <p>Resumen visual de préstamos, servicios, pagos, vencimientos y alertas.</p>
-    </a>
-  </section>
+      <a href="{{ url_for('prestamos') }}" class="future-card">
+        <div class="icon">💰</div>
+        <h2>Préstamos</h2>
+        <p>
+          Controla dinero prestado, cuotas mensuales, fechas de pago,
+          intereses, vencimientos y alertas.
+        </p>
+        <span class="chip">Entrar al módulo</span>
+      </a>
 
-  <section class="main-actions">
-    <a href="{{ url_for('logout') }}" class="btn-delete">Cerrar sesión</a>
+      <a href="{{ url_for('servicios') }}" class="future-card">
+        <div class="icon">🧾</div>
+        <h2>Servicios</h2>
+        <p>
+          Gestiona recibos, obligaciones mensuales, pagos pendientes,
+          cuotas y próximos vencimientos.
+        </p>
+        <span class="chip">Entrar al módulo</span>
+      </a>
+
+      <a href="{{ url_for('dashboard') }}" class="future-card">
+        <div class="icon">📈</div>
+        <h2>Dashboard Inteligente</h2>
+        <p>
+          Visualiza el resumen financiero general, pagos vencidos,
+          próximos vencimientos y nivel de alerta.
+        </p>
+        <span class="chip">Ver resumen</span>
+      </a>
+
+    </div>
+
+    <div class="logout-area">
+      <a href="{{ url_for('logout') }}" class="btn-logout-future">Cerrar sesión</a>
+      <a href="{{ url_for('cambiar_password') }}" class="btn-admin">🔐 Cambiar contraseña</a>
+    </div>
+
   </section>
 
 </div>

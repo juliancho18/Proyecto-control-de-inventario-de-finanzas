@@ -9,6 +9,10 @@ app.secret_key = "clave_desarrollo"
 
 DB_PATH = "instance/finanzas.db"
 
+USUARIO_SISTEMA = "angi"
+PASSWORD_INICIAL = "tatiana"
+CLAVE_DESBLOQUEO = "2026"
+
 
 def get_connection():
     os.makedirs("instance", exist_ok=True)
@@ -81,8 +85,17 @@ def init_db():
     conn.close()
 
 
+def init_auth_session():
+    if "password_actual" not in session:
+        session["password_actual"] = PASSWORD_INICIAL
+    if "intentos_fallidos" not in session:
+        session["intentos_fallidos"] = 0
+    if "cuenta_bloqueada" not in session:
+        session["cuenta_bloqueada"] = False
+
+
 def login_required():
-    return session.get("usuario") == "admin"
+    return session.get("usuario") == USUARIO_SISTEMA
 
 
 def fecha(fecha_str):
@@ -135,22 +148,92 @@ def crear_cuotas(tabla, id_columna, id_valor, meses, fecha_registro, dia_pago, v
 
 @app.route("/", methods=["GET", "POST"])
 def login():
+    init_auth_session()
+
     if request.method == "POST":
         usuario = request.form["usuario"]
         password = request.form["password"]
 
-        if usuario == "admin" and password == "123456789":
-            session["usuario"] = "admin"
+        if session.get("cuenta_bloqueada"):
+            flash("Cuenta bloqueada. Ingresa la clave temporal para desbloquear.")
+            return redirect(url_for("desbloquear"))
+
+        if usuario == USUARIO_SISTEMA and password == session.get("password_actual"):
+            session["usuario"] = USUARIO_SISTEMA
+            session["intentos_fallidos"] = 0
+            flash("Ingreso exitoso.")
             return redirect(url_for("menu"))
 
-        flash("Usuario o contraseña incorrectos.")
+        session["intentos_fallidos"] += 1
+        intentos_restantes = 4 - session["intentos_fallidos"]
+
+        if session["intentos_fallidos"] >= 4:
+            session["cuenta_bloqueada"] = True
+            flash("Cuenta bloqueada por demasiados intentos fallidos.")
+            return redirect(url_for("desbloquear"))
+
+        flash(f"Usuario o contraseña incorrectos. Intentos restantes: {intentos_restantes}")
 
     return render_template("login.html")
 
 
+@app.route("/desbloquear", methods=["GET", "POST"])
+def desbloquear():
+    init_auth_session()
+
+    if request.method == "POST":
+        clave_temporal = request.form["clave_temporal"]
+
+        if clave_temporal == CLAVE_DESBLOQUEO:
+            session["cuenta_bloqueada"] = False
+            session["intentos_fallidos"] = 0
+            flash("Cuenta desbloqueada correctamente.")
+            return redirect(url_for("login"))
+
+        flash("Clave temporal incorrecta.")
+
+    return render_template("desbloquear.html")
+
+
+@app.route("/cambiar_password", methods=["GET", "POST"])
+def cambiar_password():
+    if not login_required():
+        return redirect(url_for("login"))
+
+    init_auth_session()
+
+    if request.method == "POST":
+        password_anterior = request.form["password_anterior"]
+        password_nueva = request.form["password_nueva"]
+        confirmar_password = request.form["confirmar_password"]
+
+        if password_anterior != session.get("password_actual"):
+            flash("La contraseña anterior no es correcta.")
+            return redirect(url_for("cambiar_password"))
+
+        if password_nueva != confirmar_password:
+            flash("Las contraseñas nuevas no coinciden.")
+            return redirect(url_for("cambiar_password"))
+
+        session["password_actual"] = password_nueva
+        flash("Contraseña actualizada correctamente.")
+        return redirect(url_for("menu"))
+
+    return render_template("cambiar_password.html")
+
+
 @app.route("/logout")
 def logout():
+    password_actual = session.get("password_actual", PASSWORD_INICIAL)
+    cuenta_bloqueada = session.get("cuenta_bloqueada", False)
+    intentos_fallidos = session.get("intentos_fallidos", 0)
+
     session.clear()
+
+    session["password_actual"] = password_actual
+    session["cuenta_bloqueada"] = cuenta_bloqueada
+    session["intentos_fallidos"] = intentos_fallidos
+
     return redirect(url_for("login"))
 
 
@@ -172,7 +255,11 @@ def prestamos():
     lista = []
 
     for p in prestamos_raw:
-        cuotas = conn.execute("SELECT * FROM cuotas WHERE prestamo_id = ? ORDER BY numero_cuota", (p["id"],)).fetchall()
+        cuotas = conn.execute(
+            "SELECT * FROM cuotas WHERE prestamo_id = ? ORDER BY numero_cuota",
+            (p["id"],)
+        ).fetchall()
+
         pagadas = sum(1 for c in cuotas if c["estado"] == "pagado")
         vencidas = 0
         deuda_actual = 0
@@ -233,7 +320,16 @@ def crear_prestamo():
         INSERT INTO prestamos
         (nombre, valor_prestado, meses, interes, dia_pago, fecha_registro, valor_mensual_base, total_con_interes)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (nombre, valor_prestado, meses, interes, dia_pago, fecha_registro, valor_mensual, total_con_interes))
+    """, (
+        nombre,
+        valor_prestado,
+        meses,
+        interes,
+        dia_pago,
+        fecha_registro,
+        valor_mensual,
+        total_con_interes
+    ))
 
     prestamo_id = cursor.lastrowid
     conn.commit()
@@ -252,10 +348,14 @@ def detalle_prestamo(id):
 
     conn = get_connection()
     prestamo = conn.execute("SELECT * FROM prestamos WHERE id = ?", (id,)).fetchone()
-    cuotas_raw = conn.execute("SELECT * FROM cuotas WHERE prestamo_id = ? ORDER BY numero_cuota", (id,)).fetchall()
+    cuotas_raw = conn.execute(
+        "SELECT * FROM cuotas WHERE prestamo_id = ? ORDER BY numero_cuota",
+        (id,)
+    ).fetchall()
     conn.close()
 
     cuotas = []
+
     for c in cuotas_raw:
         estado_texto, color, dias = estado_item(c)
         item = dict(c)
@@ -278,7 +378,11 @@ def servicios():
     lista = []
 
     for s in servicios_raw:
-        cuotas = conn.execute("SELECT * FROM cuotas_servicios WHERE servicio_id = ? ORDER BY numero_cuota", (s["id"],)).fetchall()
+        cuotas = conn.execute(
+            "SELECT * FROM cuotas_servicios WHERE servicio_id = ? ORDER BY numero_cuota",
+            (s["id"],)
+        ).fetchall()
+
         pagadas = sum(1 for c in cuotas if c["estado"] == "pagado")
         vencidas = 0
         deuda_actual = 0
@@ -338,13 +442,29 @@ def crear_servicio():
         INSERT INTO servicios
         (nombre_servicio, proveedor, valor_total, meses, dia_pago, fecha_registro, valor_mensual)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (nombre_servicio, proveedor, valor_total, meses, dia_pago, fecha_registro, valor_mensual))
+    """, (
+        nombre_servicio,
+        proveedor,
+        valor_total,
+        meses,
+        dia_pago,
+        fecha_registro,
+        valor_mensual
+    ))
 
     servicio_id = cursor.lastrowid
     conn.commit()
     conn.close()
 
-    crear_cuotas("cuotas_servicios", "servicio_id", servicio_id, meses, fecha_registro, dia_pago, valor_mensual)
+    crear_cuotas(
+        "cuotas_servicios",
+        "servicio_id",
+        servicio_id,
+        meses,
+        fecha_registro,
+        dia_pago,
+        valor_mensual
+    )
 
     flash("Servicio creado correctamente.")
     return redirect(url_for("servicios"))
@@ -357,10 +477,14 @@ def detalle_servicio(id):
 
     conn = get_connection()
     servicio = conn.execute("SELECT * FROM servicios WHERE id = ?", (id,)).fetchone()
-    cuotas_raw = conn.execute("SELECT * FROM cuotas_servicios WHERE servicio_id = ? ORDER BY numero_cuota", (id,)).fetchall()
+    cuotas_raw = conn.execute(
+        "SELECT * FROM cuotas_servicios WHERE servicio_id = ? ORDER BY numero_cuota",
+        (id,)
+    ).fetchall()
     conn.close()
 
     cuotas = []
+
     for c in cuotas_raw:
         estado_texto, color, dias = estado_item(c)
         item = dict(c)
@@ -384,7 +508,10 @@ def pagar(tipo, id):
         UPDATE {tabla}
         SET estado = 'pagado', fecha_pagada = ?
         WHERE id = ?
-    """, (date.today().strftime("%Y-%m-%d"), id))
+    """, (
+        date.today().strftime("%Y-%m-%d"),
+        id
+    ))
     conn.commit()
     conn.close()
 
@@ -404,17 +531,30 @@ def editar_cuota(tipo, id):
 
     conn = get_connection()
     cuota = conn.execute(f"SELECT * FROM {tabla} WHERE id = ?", (id,)).fetchone()
+
+    if not cuota:
+        conn.close()
+        flash("Cuota no encontrada.")
+        return redirect(url_for("menu"))
+
     valor_total = cuota["valor_base"] + incremento_mora
 
     conn.execute(f"""
         UPDATE {tabla}
         SET fecha_pago = ?, incremento_mora = ?, valor_total = ?, estado = ?
         WHERE id = ?
-    """, (fecha_pago, incremento_mora, valor_total, estado, id))
+    """, (
+        fecha_pago,
+        incremento_mora,
+        valor_total,
+        estado,
+        id
+    ))
 
     conn.commit()
     conn.close()
 
+    flash("Cuota actualizada correctamente.")
     return redirect(request.referrer or url_for("menu"))
 
 
@@ -448,22 +588,22 @@ def dashboard():
 
     conn = get_connection()
 
-    prestamos = conn.execute("SELECT * FROM prestamos").fetchall()
-    servicios = conn.execute("SELECT * FROM servicios").fetchall()
-    cuotas = conn.execute("SELECT * FROM cuotas").fetchall()
-    cuotas_servicios = conn.execute("SELECT * FROM cuotas_servicios").fetchall()
+    prestamos_db = conn.execute("SELECT * FROM prestamos").fetchall()
+    servicios_db = conn.execute("SELECT * FROM servicios").fetchall()
+    cuotas_db = conn.execute("SELECT * FROM cuotas").fetchall()
+    cuotas_servicios_db = conn.execute("SELECT * FROM cuotas_servicios").fetchall()
 
     conn.close()
 
-    total_prestamos = sum(p["valor_prestado"] for p in prestamos)
-    total_servicios = sum(s["valor_total"] for s in servicios)
+    total_prestamos = sum(p["valor_prestado"] for p in prestamos_db)
+    total_servicios = sum(s["valor_total"] for s in servicios_db)
 
     cuotas_vencidas = 0
     cuotas_proximas = 0
     cuotas_pendientes = 0
     cuotas_pagadas = 0
 
-    for grupo in [cuotas, cuotas_servicios]:
+    for grupo in [cuotas_db, cuotas_servicios_db]:
         for c in grupo:
             estado_texto, _, _ = estado_item(c)
 
