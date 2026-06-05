@@ -4,70 +4,391 @@
   <meta charset="UTF-8">
   <title>Dashboard inteligente</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+
+  <style>
+    .dashboard-hero {
+      position: relative;
+      overflow: hidden;
+      padding: 34px;
+      margin-bottom: 28px;
+      border-radius: 28px;
+      background:
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.25), transparent 35%),
+        radial-gradient(circle at bottom right, rgba(168, 85, 247, 0.20), transparent 35%),
+        rgba(15, 23, 42, 0.92);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      box-shadow: 0 0 45px rgba(56, 189, 248, 0.12);
+    }
+
+    .hero-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 22px;
+      flex-wrap: wrap;
+    }
+
+    .hero-title h1 {
+      font-size: 2.2rem;
+      color: #38bdf8;
+      margin-bottom: 8px;
+    }
+
+    .hero-title p {
+      color: #cbd5e1;
+    }
+
+    .dashboard-section {
+      position: relative;
+      overflow: hidden;
+      margin-top: 22px;
+      padding: 26px;
+      border-radius: 26px;
+      background:
+        linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(2, 6, 23, 0.96)),
+        radial-gradient(circle at top right, rgba(56, 189, 248, 0.18), transparent 30%);
+      border: 1px solid rgba(56, 189, 248, 0.32);
+      box-shadow: inset 0 0 35px rgba(56, 189, 248, 0.04);
+    }
+
+    .section-head {
+      margin-bottom: 18px;
+    }
+
+    .section-head h2 {
+      color: #38bdf8;
+      font-size: 1.55rem;
+      margin-bottom: 8px;
+    }
+
+    .section-head p {
+      color: #cbd5e1;
+      font-size: 0.95rem;
+    }
+
+    .section-layout {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 22px;
+      align-items: stretch;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(180px, 1fr));
+      gap: 16px;
+    }
+
+    .metric-card {
+      position: relative;
+      min-height: 120px;
+      padding: 20px;
+      border-radius: 20px;
+      background:
+        linear-gradient(145deg, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.72));
+      border: 1px solid rgba(56, 189, 248, 0.28);
+      box-shadow: 0 0 22px rgba(2, 132, 199, 0.07);
+    }
+
+    .metric-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 20px;
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.08), transparent 55%);
+      pointer-events: none;
+    }
+
+    .metric-icon {
+      font-size: 2rem;
+      margin-bottom: 12px;
+      display: block;
+    }
+
+    .metric-card h3 {
+      color: #bfdbfe;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 10px;
+    }
+
+    .metric-card strong {
+      color: #facc15;
+      font-size: 1.75rem;
+      display: block;
+      line-height: 1;
+    }
+
+    .danger-text {
+      color: #fb7185 !important;
+    }
+
+    .warning-text {
+      color: #facc15 !important;
+    }
+
+    .success-text {
+      color: #22c55e !important;
+    }
+
+    .robot-panel {
+      min-height: 100%;
+      padding: 22px;
+      border-radius: 24px;
+      background:
+        radial-gradient(circle at center, rgba(56, 189, 248, 0.18), transparent 58%),
+        rgba(2, 6, 23, 0.72);
+      border: 1px solid rgba(125, 211, 252, 0.25);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .robot {
+      font-size: 5.2rem;
+      animation: robotFloat 3.5s ease-in-out infinite;
+      filter: drop-shadow(0 0 18px rgba(56, 189, 248, 0.55));
+    }
+
+    .robot.small {
+      font-size: 4.7rem;
+    }
+
+    @keyframes robotFloat {
+      0%, 100% { transform: translateY(0) rotate(-2deg); }
+      50% { transform: translateY(-12px) rotate(2deg); }
+    }
+
+    .scan-line {
+      width: 150px;
+      height: 5px;
+      margin: 12px auto 18px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, transparent, #38bdf8, transparent);
+      animation: scanMove 1.8s linear infinite;
+    }
+
+    @keyframes scanMove {
+      0% { transform: translateX(-35px); opacity: 0.35; }
+      50% { opacity: 1; }
+      100% { transform: translateX(35px); opacity: 0.35; }
+    }
+
+    .robot-panel h3 {
+      color: #38bdf8;
+      font-size: 1.2rem;
+      margin-bottom: 8px;
+    }
+
+    .robot-panel p {
+      color: #cbd5e1;
+      font-size: 0.88rem;
+      line-height: 1.45;
+    }
+
+    .mini-hud {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .hud-pill {
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(14, 165, 233, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.28);
+      color: #7dd3fc;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .footer-hud {
+      margin-top: 22px;
+      padding: 18px 24px;
+      border-radius: 22px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      color: #cbd5e1;
+    }
+
+    @media (max-width: 1100px) {
+      .section-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .metric-grid {
+        grid-template-columns: repeat(2, minmax(180px, 1fr));
+      }
+    }
+
+    @media (max-width: 650px) {
+      .metric-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .dashboard-hero {
+        padding: 24px;
+      }
+
+      .hero-title h1 {
+        font-size: 1.7rem;
+      }
+    }
+  </style>
 </head>
+
 <body>
 
 <div class="container">
 
-  <header>
-    <h1>📈 Dashboard inteligente</h1>
-    <p>Resumen general del estado financiero del sistema.</p>
-  </header>
+  <section class="dashboard-hero">
+    <div class="hero-top">
+      <div class="hero-title">
+        <h1>📈 Dashboard inteligente</h1>
+        <p>Resumen separado, claro y visual del control de préstamos y servicios activos.</p>
+      </div>
 
-  <section class="main-actions">
-    <a href="{{ url_for('menu') }}" class="btn-primary">🏠 Menú principal</a>
-    <a href="{{ url_for('prestamos') }}" class="btn-admin">💰 Préstamos</a>
-    <a href="{{ url_for('servicios') }}" class="btn-admin">🧾 Servicios</a>
-  </section>
-
-  <section class="dashboard">
-    <div class="card">
-      <h3>Total préstamos</h3>
-      <strong>${{ "{:,.0f}".format(total_prestamos).replace(",", ".") }}</strong>
-    </div>
-
-    <div class="card">
-      <h3>Total servicios</h3>
-      <strong>${{ "{:,.0f}".format(total_servicios).replace(",", ".") }}</strong>
-    </div>
-
-    <div class="card">
-      <h3>Total general controlado</h3>
-      <strong>${{ "{:,.0f}".format(total_general).replace(",", ".") }}</strong>
-    </div>
-
-    <div class="card">
-      <h3>Cuotas pagadas</h3>
-      <strong>{{ cuotas_pagadas }}</strong>
+      <section class="main-actions">
+        <a href="{{ url_for('menu') }}" class="btn-primary">🏠 Menú principal</a>
+        <a href="{{ url_for('prestamos') }}" class="btn-admin">💰 Préstamos</a>
+        <a href="{{ url_for('servicios') }}" class="btn-admin">🧾 Servicios</a>
+      </section>
     </div>
   </section>
 
-  <section class="dashboard">
-    <div class="card">
-      <h3>Cuotas vencidas</h3>
-      <strong>{{ cuotas_vencidas }}</strong>
+  <section class="dashboard-section">
+    <div class="section-head">
+      <h2>💰 Control de préstamos</h2>
+      <p>Seguimiento de dinero prestado, cuotas pagadas, pendientes y vencidas.</p>
     </div>
 
-    <div class="card">
-      <h3>Próximas a vencer</h3>
-      <strong>{{ cuotas_proximas }}</strong>
+    <div class="section-layout">
+      <div class="metric-grid">
+        <div class="metric-card">
+          <span class="metric-icon">💳</span>
+          <h3>Total prestado</h3>
+          <strong>${{ "{:,.0f}".format(total_prestamos).replace(",", ".") }}</strong>
+        </div>
+
+        <div class="metric-card">
+          <span class="metric-icon">✅</span>
+          <h3>Cuotas pagadas</h3>
+          <strong class="success-text">{{ cuotas_pagadas }}</strong>
+        </div>
+
+        <div class="metric-card">
+          <span class="metric-icon">⏳</span>
+          <h3>Cuotas pendientes</h3>
+          <strong>{{ cuotas_pendientes }}</strong>
+        </div>
+
+        <div class="metric-card">
+          <span class="metric-icon">🚨</span>
+          <h3>Cuotas vencidas</h3>
+          <strong class="danger-text">{{ cuotas_vencidas }}</strong>
+        </div>
+
+        <div class="metric-card">
+          <span class="metric-icon">📅</span>
+          <h3>Próximas a vencer</h3>
+          <strong class="warning-text">{{ cuotas_proximas }}</strong>
+        </div>
+
+        <div class="metric-card">
+          <span class="metric-icon">📡</span>
+          <h3>Nivel de alerta préstamos</h3>
+          {% if cuotas_vencidas > 0 %}
+            <strong class="danger-text">Alto</strong>
+          {% elif cuotas_proximas > 0 %}
+            <strong class="warning-text">Medio</strong>
+          {% else %}
+            <strong class="success-text">Normal</strong>
+          {% endif %}
+        </div>
+      </div>
+
+      <aside class="robot-panel">
+        <div class="robot">🤖</div>
+        <div class="scan-line"></div>
+        <h3>Asistente financiero activo</h3>
+        <p>Monitorea cuotas, vencimientos y estado general de los préstamos.</p>
+        <div class="mini-hud">
+          <span class="hud-pill">Inventario</span>
+          <span class="hud-pill">Pagos</span>
+          <span class="hud-pill">Alertas</span>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <section class="dashboard-section">
+    <div class="section-head">
+      <h2>🧾 Recordatorio de servicios</h2>
+      <p>Control visual de servicios activos y fechas de pago. Este módulo solo funciona como recordatorio.</p>
     </div>
 
-    <div class="card">
-      <h3>Cuotas pendientes</h3>
-      <strong>{{ cuotas_pendientes }}</strong>
-    </div>
+    <div class="section-layout">
+      <div class="metric-grid">
+        <div class="metric-card">
+          <span class="metric-icon">👥</span>
+          <h3>Servicios activos</h3>
+          <strong>{{ cantidad_servicios }}</strong>
+        </div>
 
-    <div class="card">
-      <h3>Nivel de alerta</h3>
-      {% if cuotas_vencidas > 0 %}
-        <strong class="danger-text">Alto</strong>
-      {% elif cuotas_proximas > 0 %}
-        <strong class="warning-text">Medio</strong>
-      {% else %}
-        <strong class="success-text">Normal</strong>
-      {% endif %}
+        <div class="metric-card">
+          <span class="metric-icon">⌛</span>
+          <h3>Servicios por vencer</h3>
+          <strong class="warning-text">{{ servicios_por_vencer }}</strong>
+        </div>
+
+        <div class="metric-card">
+          <span class="metric-icon">⚠️</span>
+          <h3>Servicios vencidos</h3>
+          <strong class="danger-text">{{ servicios_vencidos }}</strong>
+        </div>
+
+        <div class="metric-card">
+          <span class="metric-icon">🟢</span>
+          <h3>Estado servicios</h3>
+          {% if servicios_vencidos > 0 %}
+            <strong class="danger-text">Revisar</strong>
+          {% elif servicios_por_vencer > 0 %}
+            <strong class="warning-text">Pago cercano</strong>
+          {% else %}
+            <strong class="success-text">Al día</strong>
+          {% endif %}
+        </div>
+      </div>
+
+      <aside class="robot-panel">
+        <div class="robot small">🛸</div>
+        <div class="scan-line"></div>
+        <h3>Robot de servicios</h3>
+        <p>Vigila fechas de pago y avisa si un servicio está cerca de vencer.</p>
+        <div class="mini-hud">
+          <span class="hud-pill">Calendario</span>
+          <span class="hud-pill">Recordatorio</span>
+          <span class="hud-pill">Vigilancia</span>
+        </div>
+      </aside>
     </div>
+  </section>
+
+  <section class="footer-hud">
+    <span>🎯 Control separado: préstamos ≠ servicios</span>
+    <span>🛡️ Sistema privado de seguimiento financiero</span>
+    <span>⚡ Control Angi Tatiana Cuervo</span>
   </section>
 
 </div>

@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Servicios | Recibos por pagar</title>
+  <title>Servicios | Pagos mensuales</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 </head>
 
@@ -12,7 +12,7 @@
 
   <header>
     <h1>🧾 Control de Servicios</h1>
-    <p>Control de recibos, servicios, pagos mensuales, fechas de vencimiento y mora.</p>
+    <p>Control de servicios mensuales, fechas de pago y estado de vencimiento.</p>
   </header>
 
   {% with messages = get_flashed_messages() %}
@@ -24,22 +24,22 @@
   <section class="dashboard">
     <div class="card">
       <h3>Total servicios</h3>
-      <strong>${{ "{:,.0f}".format(total_servicios).replace(",", ".") }}</strong>
+      <strong>{{ cantidad_servicios }}</strong>
     </div>
 
     <div class="card">
-      <h3>Total mensual esperado</h3>
+      <h3>Total mensual</h3>
       <strong>${{ "{:,.0f}".format(total_mensual).replace(",", ".") }}</strong>
     </div>
 
     <div class="card">
-      <h3>Total pendiente</h3>
-      <strong>${{ "{:,.0f}".format(total_pendiente).replace(",", ".") }}</strong>
+      <h3>Servicios vencidos</h3>
+      <strong>{{ servicios_vencidos }}</strong>
     </div>
 
     <div class="card">
-      <h3>Servicios registrados</h3>
-      <strong>{{ cantidad_servicios }}</strong>
+      <h3>Próximos a vencer</h3>
+      <strong>{{ servicios_por_vencer }}</strong>
     </div>
   </section>
 
@@ -58,16 +58,11 @@
         <tr>
           <th>Servicio</th>
           <th>Proveedor</th>
-          <th>Registro</th>
-          <th>Día pago</th>
-          <th>Total</th>
-          <th>Meses</th>
-          <th>Cuotas</th>
-          <th>Mensual</th>
-          <th>Deuda actual</th>
+          <th>Valor mensual</th>
+          <th>Día de pago</th>
           <th>Próximo pago</th>
+          <th>Días restantes</th>
           <th>Semáforo</th>
-          <th>Vencidas</th>
           <th>Acciones</th>
         </tr>
       </thead>
@@ -77,25 +72,30 @@
         <tr>
           <td>{{ s.nombre_servicio }}</td>
           <td>{{ s.proveedor }}</td>
-          <td>{{ s.fecha_registro }}</td>
-          <td>Día {{ s.dia_pago }}</td>
-          <td>${{ "{:,.0f}".format(s.valor_total).replace(",", ".") }}</td>
-          <td>{{ s.meses }}</td>
-          <td>{{ s.cuotas_pagadas }}/{{ s.meses }}</td>
           <td>${{ "{:,.0f}".format(s.valor_mensual).replace(",", ".") }}</td>
-          <td>${{ "{:,.0f}".format(s.deuda_actual).replace(",", ".") }}</td>
+          <td>Día {{ s.dia_pago }}</td>
           <td>{{ s.proxima_fecha }}</td>
-          <td><span class="status {{ s.color }}">{{ s.semaforo }}</span></td>
-          <td>{{ s.cuotas_vencidas }}</td>
+
+          <td>
+            {% if s.dias_restantes > 0 %}
+              Faltan {{ s.dias_restantes }} días
+            {% elif s.dias_restantes == 0 %}
+              Vence hoy
+            {% else %}
+              Vencido hace {{ s.dias_restantes * -1 }} días
+            {% endif %}
+          </td>
+
+          <td>
+            <span class="status {{ s.color }}">{{ s.semaforo }}</span>
+          </td>
 
           <td class="actions">
-            <a href="{{ url_for('detalle_servicio', id=s.id) }}" class="btn-edit">Ver cuotas</a>
-
             <form action="{{ url_for('borrar', tipo='servicio', id=s.id) }}" method="POST">
               <button 
                 class="btn-delete" 
                 type="submit"
-                onclick="return confirm('¿Seguro que deseas borrar este servicio y todas sus cuotas?')">
+                onclick="return confirm('¿Seguro que deseas borrar este servicio?')">
                 Borrar
               </button>
             </form>
@@ -103,7 +103,7 @@
         </tr>
         {% else %}
         <tr>
-          <td colspan="13" class="empty">No hay servicios registrados todavía.</td>
+          <td colspan="8" class="empty">No hay servicios registrados todavía.</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -116,32 +116,21 @@
   <div class="modal-content">
     <button class="modal-close" onclick="cerrarModalCrear()">×</button>
 
-    <h2 class="section-title">➕ Agregar servicio</h2>
+    <h2 class="section-title">➕ Agregar servicio mensual</h2>
 
     <form action="{{ url_for('crear_servicio') }}" method="POST">
 
       <label>Nombre del servicio</label>
-      <input type="text" name="nombre_servicio" required placeholder="Ej: Internet, luz, arriendo">
+      <input type="text" name="nombre_servicio" required placeholder="Ej: Internet, luz, arriendo, Netflix">
 
       <label>Proveedor</label>
-      <input type="text" name="proveedor" required placeholder="Ej: Claro, Enel, banco">
+      <input type="text" name="proveedor" required placeholder="Ej: Claro, Enel, Movistar">
 
-      <label>Valor total a pagar</label>
-      <input type="number" name="valor_total" id="valor_total" required placeholder="Ej: 1200000">
-
-      <label>Cantidad de meses</label>
-      <input type="number" name="meses" id="meses" required placeholder="Ej: 6">
-
-      <label>Fecha de registro</label>
-      <input type="date" name="fecha_registro" required>
+      <label>Valor mensual</label>
+      <input type="number" name="valor_mensual" required placeholder="Ej: 85000">
 
       <label>Día fijo de pago</label>
-      <input type="number" name="dia_pago" id="dia_pago" min="1" max="28" required placeholder="Ej: 5">
-
-      <div class="resultado-calculo">
-        <p>Valor mensual a pagar:</p>
-        <strong id="valor_mensual">$0</strong>
-      </div>
+      <input type="number" name="dia_pago" min="1" max="28" required placeholder="Ej: 5">
 
       <button type="submit" class="btn-primary">Guardar servicio</button>
     </form>
@@ -156,25 +145,6 @@
   function cerrarModalCrear() {
     document.getElementById("modalCrear").style.display = "none";
   }
-
-  function formatoCOP(valor) {
-    return new Intl.NumberFormat("es-CO", {
-      style: "currency",
-      currency: "COP",
-      maximumFractionDigits: 0
-    }).format(valor);
-  }
-
-  function calcularMensualidadServicio() {
-    const valor = parseFloat(document.getElementById("valor_total").value) || 0;
-    const meses = parseInt(document.getElementById("meses").value) || 0;
-    const mensual = meses > 0 ? valor / meses : 0;
-
-    document.getElementById("valor_mensual").innerText = formatoCOP(mensual);
-  }
-
-  document.getElementById("valor_total").addEventListener("input", calcularMensualidadServicio);
-  document.getElementById("meses").addEventListener("input", calcularMensualidadServicio);
 
   window.onclick = function(event) {
     const modal = document.getElementById("modalCrear");

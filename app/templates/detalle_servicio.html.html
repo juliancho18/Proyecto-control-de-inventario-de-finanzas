@@ -11,63 +11,78 @@
 <div class="container">
 
   <header>
-    <h1>🧾 Cuotas de {{ servicio.nombre_servicio }}</h1>
+    <h1>🧾 Detalle de {{ servicio.nombre_servicio }}</h1>
     <p>Proveedor: {{ servicio.proveedor }}</p>
   </header>
 
   <section class="main-actions">
-    <a href="{{ url_for('servicios') }}" class="btn-primary">⬅ Volver</a>
+    <a href="{{ url_for('servicios') }}" class="btn-primary">⬅ Volver a servicios</a>
+    <a href="{{ url_for('menu') }}" class="btn-admin">🏠 Menú</a>
+    <a href="{{ url_for('dashboard') }}" class="btn-admin">📈 Dashboard</a>
+  </section>
+
+  <section class="dashboard">
+    <div class="card">
+      <h3>Valor mensual</h3>
+      <strong>${{ "{:,.0f}".format(servicio.valor_mensual).replace(",", ".") }}</strong>
+    </div>
+
+    <div class="card">
+      <h3>Día fijo de pago</h3>
+      <strong>Día {{ servicio.dia_pago }}</strong>
+    </div>
+
+    <div class="card">
+      <h3>Próximo pago</h3>
+      <strong>{{ servicio.proxima_fecha }}</strong>
+    </div>
+
+    <div class="card">
+      <h3>Estado</h3>
+      <strong>
+        <span class="status {{ servicio.color }}">{{ servicio.semaforo }}</span>
+      </strong>
+    </div>
   </section>
 
   <section class="card">
-    <h2 class="section-title">Plan de pagos del servicio</h2>
+    <h2 class="section-title">Estado del servicio mensual</h2>
 
     <table>
       <thead>
         <tr>
-          <th>Cuota</th>
-          <th>Fecha pago</th>
-          <th>Valor base</th>
-          <th>Mora / incremento</th>
-          <th>Total cuota</th>
-          <th>Estado</th>
-          <th>Días vencidos</th>
-          <th>Fecha pagada</th>
-          <th>Editar</th>
-          <th>Pago</th>
+          <th>Servicio</th>
+          <th>Proveedor</th>
+          <th>Valor mensual</th>
+          <th>Día de pago</th>
+          <th>Próximo pago</th>
+          <th>Días restantes</th>
+          <th>Semáforo</th>
         </tr>
       </thead>
 
       <tbody>
-        {% for c in cuotas %}
         <tr>
-          <form action="{{ url_for('editar_cuota', tipo='servicio', id=c.id) }}" method="POST">
-            <td>{{ c.numero_cuota }}/{{ servicio.meses }}</td>
+          <td>{{ servicio.nombre_servicio }}</td>
+          <td>{{ servicio.proveedor }}</td>
+          <td>${{ "{:,.0f}".format(servicio.valor_mensual).replace(",", ".") }}</td>
+          <td>Día {{ servicio.dia_pago }}</td>
+          <td>{{ servicio.proxima_fecha }}</td>
 
-            <td><input type="date" name="fecha_pago" value="{{ c.fecha_pago }}"></td>
+          <td>
+            {% if servicio.dias_restantes > 0 %}
+              Faltan {{ servicio.dias_restantes }} días
+            {% elif servicio.dias_restantes == 0 %}
+              Vence hoy
+            {% else %}
+              Vencido hace {{ servicio.dias_restantes * -1 }} días
+            {% endif %}
+          </td>
 
-            <td>${{ "{:,.0f}".format(c.valor_base).replace(",", ".") }}</td>
-
-            <td><input type="number" name="incremento_mora" value="{{ c.incremento_mora }}" step="0.01"></td>
-
-            <td>${{ "{:,.0f}".format(c.valor_total).replace(",", ".") }}</td>
-
-            <td>
-              <select name="estado">
-                <option value="pendiente" {% if c.estado == "pendiente" %}selected{% endif %}>Pendiente</option>
-                <option value="pagado" {% if c.estado == "pagado" %}selected{% endif %}>Pagado</option>
-              </select>
-              <span class="status {{ c.color }}">{{ c.estado_texto }}</span>
-            </td>
-
-            <td>{{ c.dias_vencidos }}</td>
-            <td>{{ c.fecha_pagada or "Sin pagar" }}</td>
-
-            <td><button type="submit" class="btn-edit">Guardar</button></td>
-            <td><a href="{{ url_for('pagar', tipo='servicio', id=c.id) }}" class="btn-paid">Marcar pago</a></td>
-          </form>
+          <td>
+            <span class="status {{ servicio.color }}">{{ servicio.semaforo }}</span>
+          </td>
         </tr>
-        {% endfor %}
       </tbody>
     </table>
   </section>

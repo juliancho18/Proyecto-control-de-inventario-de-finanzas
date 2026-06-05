@@ -120,6 +120,28 @@ def estado_item(item):
     return "Pendiente", "blue", 0
 
 
+def estado_servicio_mensual(dia_pago):
+    hoy = date.today()
+    dia_actual = hoy.day
+    dia_pago = int(dia_pago)
+
+    dias_restantes = dia_pago - dia_actual
+
+    if dias_restantes > 2:
+        return "Al día", "green", dias_restantes
+
+    if dias_restantes in [1, 2]:
+        return "Por vencer", "yellow", dias_restantes
+
+    return "Vencido", "red", dias_restantes
+
+
+def proxima_fecha_servicio(dia_pago):
+    hoy = date.today()
+    dia_pago = min(int(dia_pago), 28)
+    return date(hoy.year, hoy.month, dia_pago)
+
+
 def crear_cuotas(tabla, id_columna, id_valor, meses, fecha_registro, dia_pago, valor_mensual):
     conn = get_connection()
     fecha_base = fecha(fecha_registro)
@@ -241,6 +263,7 @@ def logout():
 def menu():
     if not login_required():
         return redirect(url_for("login"))
+
     return render_template("menu.html")
 
 
@@ -266,8 +289,10 @@ def prestamos():
 
         for c in cuotas:
             estado_texto, color, dias = estado_item(c)
+
             if c["estado"] != "pagado":
                 deuda_actual += c["valor_total"]
+
             if estado_texto == "Vencido":
                 vencidas += 1
 
@@ -286,6 +311,7 @@ def prestamos():
         item["proxima_fecha"] = proxima_fecha
         item["semaforo"] = semaforo
         item["color"] = color
+
         lista.append(item)
 
     conn.close()
@@ -316,6 +342,7 @@ def crear_prestamo():
     valor_mensual = total_con_interes / meses
 
     conn = get_connection()
+
     cursor = conn.execute("""
         INSERT INTO prestamos
         (nombre, valor_prestado, meses, interes, dia_pago, fecha_registro, valor_mensual_base, total_con_interes)
@@ -335,7 +362,15 @@ def crear_prestamo():
     conn.commit()
     conn.close()
 
-    crear_cuotas("cuotas", "prestamo_id", prestamo_id, meses, fecha_registro, dia_pago, valor_mensual)
+    crear_cuotas(
+        "cuotas",
+        "prestamo_id",
+        prestamo_id,
+        meses,
+        fecha_registro,
+        dia_pago,
+        valor_mensual
+    )
 
     flash("Préstamo creado correctamente.")
     return redirect(url_for("prestamos"))
@@ -347,11 +382,17 @@ def detalle_prestamo(id):
         return redirect(url_for("login"))
 
     conn = get_connection()
-    prestamo = conn.execute("SELECT * FROM prestamos WHERE id = ?", (id,)).fetchone()
+
+    prestamo = conn.execute(
+        "SELECT * FROM prestamos WHERE id = ?",
+        (id,)
+    ).fetchone()
+
     cuotas_raw = conn.execute(
         "SELECT * FROM cuotas WHERE prestamo_id = ? ORDER BY numero_cuota",
         (id,)
     ).fetchall()
+
     conn.close()
 
     cuotas = []
@@ -364,7 +405,11 @@ def detalle_prestamo(id):
         item["dias_vencidos"] = dias
         cuotas.append(item)
 
-    return render_template("detalle_prestamo.html", prestamo=prestamo, cuotas=cuotas)
+    return render_template(
+        "detalle_prestamo.html",
+        prestamo=prestamo,
+        cuotas=cuotas
+    )
 
 
 @app.route("/servicios")
@@ -373,53 +418,41 @@ def servicios():
         return redirect(url_for("login"))
 
     conn = get_connection()
-    servicios_raw = conn.execute("SELECT * FROM servicios ORDER BY id DESC").fetchall()
+    servicios_raw = conn.execute(
+        "SELECT * FROM servicios ORDER BY dia_pago ASC"
+    ).fetchall()
+    conn.close()
 
     lista = []
+    servicios_vencidos = 0
+    servicios_por_vencer = 0
 
     for s in servicios_raw:
-        cuotas = conn.execute(
-            "SELECT * FROM cuotas_servicios WHERE servicio_id = ? ORDER BY numero_cuota",
-            (s["id"],)
-        ).fetchall()
-
-        pagadas = sum(1 for c in cuotas if c["estado"] == "pagado")
-        vencidas = 0
-        deuda_actual = 0
-
-        for c in cuotas:
-            estado_texto, color, dias = estado_item(c)
-            if c["estado"] != "pagado":
-                deuda_actual += c["valor_total"]
-            if estado_texto == "Vencido":
-                vencidas += 1
-
-        pendiente = next((c for c in cuotas if c["estado"] != "pagado"), None)
-
-        if pendiente:
-            semaforo, color, _ = estado_item(pendiente)
-            proxima_fecha = pendiente["fecha_pago"]
-        else:
-            semaforo, color, proxima_fecha = "Pagado", "green", "Finalizado"
-
         item = dict(s)
-        item["cuotas_pagadas"] = pagadas
-        item["cuotas_vencidas"] = vencidas
-        item["deuda_actual"] = deuda_actual
-        item["proxima_fecha"] = proxima_fecha
+
+        semaforo, color, dias_restantes = estado_servicio_mensual(item["dia_pago"])
+        proxima_fecha = proxima_fecha_servicio(item["dia_pago"])
+
         item["semaforo"] = semaforo
         item["color"] = color
-        lista.append(item)
+        item["dias_restantes"] = dias_restantes
+        item["proxima_fecha"] = proxima_fecha.strftime("%Y-%m-%d")
 
-    conn.close()
+        if color == "red":
+            servicios_vencidos += 1
+
+        if color == "yellow":
+            servicios_por_vencer += 1
+
+        lista.append(item)
 
     return render_template(
         "servicios.html",
         servicios=lista,
-        total_servicios=sum(s["valor_total"] for s in lista),
+        cantidad_servicios=len(lista),
         total_mensual=sum(s["valor_mensual"] for s in lista),
-        total_pendiente=sum(s["deuda_actual"] for s in lista),
-        cantidad_servicios=len(lista)
+        servicios_vencidos=servicios_vencidos,
+        servicios_por_vencer=servicios_por_vencer
     )
 
 
@@ -430,43 +463,30 @@ def crear_servicio():
 
     nombre_servicio = request.form["nombre_servicio"]
     proveedor = request.form["proveedor"]
-    valor_total = float(request.form["valor_total"])
-    meses = int(request.form["meses"])
+    valor_mensual = float(request.form["valor_mensual"])
     dia_pago = int(request.form["dia_pago"])
-    fecha_registro = request.form["fecha_registro"]
-
-    valor_mensual = valor_total / meses
+    fecha_registro = date.today().strftime("%Y-%m-%d")
 
     conn = get_connection()
-    cursor = conn.execute("""
+
+    conn.execute("""
         INSERT INTO servicios
         (nombre_servicio, proveedor, valor_total, meses, dia_pago, fecha_registro, valor_mensual)
         VALUES (?, ?, ?, ?, ?, ?, ?)
     """, (
         nombre_servicio,
         proveedor,
-        valor_total,
-        meses,
+        valor_mensual,
+        1,
         dia_pago,
         fecha_registro,
         valor_mensual
     ))
 
-    servicio_id = cursor.lastrowid
     conn.commit()
     conn.close()
 
-    crear_cuotas(
-        "cuotas_servicios",
-        "servicio_id",
-        servicio_id,
-        meses,
-        fecha_registro,
-        dia_pago,
-        valor_mensual
-    )
-
-    flash("Servicio creado correctamente.")
+    flash("Servicio mensual creado correctamente.")
     return redirect(url_for("servicios"))
 
 
@@ -476,24 +496,32 @@ def detalle_servicio(id):
         return redirect(url_for("login"))
 
     conn = get_connection()
-    servicio = conn.execute("SELECT * FROM servicios WHERE id = ?", (id,)).fetchone()
-    cuotas_raw = conn.execute(
-        "SELECT * FROM cuotas_servicios WHERE servicio_id = ? ORDER BY numero_cuota",
+
+    servicio_raw = conn.execute(
+        "SELECT * FROM servicios WHERE id = ?",
         (id,)
-    ).fetchall()
+    ).fetchone()
+
     conn.close()
 
-    cuotas = []
+    if not servicio_raw:
+        flash("Servicio no encontrado.")
+        return redirect(url_for("servicios"))
 
-    for c in cuotas_raw:
-        estado_texto, color, dias = estado_item(c)
-        item = dict(c)
-        item["estado_texto"] = estado_texto
-        item["color"] = color
-        item["dias_vencidos"] = dias
-        cuotas.append(item)
+    servicio = dict(servicio_raw)
 
-    return render_template("detalle_servicio.html", servicio=servicio, cuotas=cuotas)
+    semaforo, color, dias_restantes = estado_servicio_mensual(servicio["dia_pago"])
+    proxima_fecha = proxima_fecha_servicio(servicio["dia_pago"])
+
+    servicio["semaforo"] = semaforo
+    servicio["color"] = color
+    servicio["dias_restantes"] = dias_restantes
+    servicio["proxima_fecha"] = proxima_fecha.strftime("%Y-%m-%d")
+
+    return render_template(
+        "detalle_servicio.html",
+        servicio=servicio
+    )
 
 
 @app.route("/pagar/<tipo>/<int:id>")
@@ -501,17 +529,21 @@ def pagar(tipo, id):
     if not login_required():
         return redirect(url_for("login"))
 
-    tabla = "cuotas" if tipo == "prestamo" else "cuotas_servicios"
+    if tipo != "prestamo":
+        flash("Los servicios mensuales no manejan cuotas individuales.")
+        return redirect(url_for("servicios"))
 
     conn = get_connection()
-    conn.execute(f"""
-        UPDATE {tabla}
+
+    conn.execute("""
+        UPDATE cuotas
         SET estado = 'pagado', fecha_pagada = ?
         WHERE id = ?
     """, (
         date.today().strftime("%Y-%m-%d"),
         id
     ))
+
     conn.commit()
     conn.close()
 
@@ -523,14 +555,20 @@ def editar_cuota(tipo, id):
     if not login_required():
         return redirect(url_for("login"))
 
-    tabla = "cuotas" if tipo == "prestamo" else "cuotas_servicios"
+    if tipo != "prestamo":
+        flash("Los servicios mensuales no manejan cuotas individuales.")
+        return redirect(url_for("servicios"))
 
     fecha_pago = request.form["fecha_pago"]
     incremento_mora = float(request.form["incremento_mora"])
     estado = request.form["estado"]
 
     conn = get_connection()
-    cuota = conn.execute(f"SELECT * FROM {tabla} WHERE id = ?", (id,)).fetchone()
+
+    cuota = conn.execute(
+        "SELECT * FROM cuotas WHERE id = ?",
+        (id,)
+    ).fetchone()
 
     if not cuota:
         conn.close()
@@ -539,8 +577,8 @@ def editar_cuota(tipo, id):
 
     valor_total = cuota["valor_base"] + incremento_mora
 
-    conn.execute(f"""
-        UPDATE {tabla}
+    conn.execute("""
+        UPDATE cuotas
         SET fecha_pago = ?, incremento_mora = ?, valor_total = ?, estado = ?
         WHERE id = ?
     """, (
@@ -569,10 +607,16 @@ def borrar(tipo, id):
         conn.execute("DELETE FROM cuotas WHERE prestamo_id = ?", (id,))
         conn.execute("DELETE FROM prestamos WHERE id = ?", (id,))
         destino = "prestamos"
-    else:
+
+    elif tipo == "servicio":
         conn.execute("DELETE FROM cuotas_servicios WHERE servicio_id = ?", (id,))
         conn.execute("DELETE FROM servicios WHERE id = ?", (id,))
         destino = "servicios"
+
+    else:
+        conn.close()
+        flash("Tipo de registro no válido.")
+        return redirect(url_for("menu"))
 
     conn.commit()
     conn.close()
@@ -591,43 +635,56 @@ def dashboard():
     prestamos_db = conn.execute("SELECT * FROM prestamos").fetchall()
     servicios_db = conn.execute("SELECT * FROM servicios").fetchall()
     cuotas_db = conn.execute("SELECT * FROM cuotas").fetchall()
-    cuotas_servicios_db = conn.execute("SELECT * FROM cuotas_servicios").fetchall()
 
     conn.close()
 
     total_prestamos = sum(p["valor_prestado"] for p in prestamos_db)
-    total_servicios = sum(s["valor_total"] for s in servicios_db)
+    total_servicios = sum(s["valor_mensual"] for s in servicios_db)
 
     cuotas_vencidas = 0
     cuotas_proximas = 0
     cuotas_pendientes = 0
     cuotas_pagadas = 0
 
-    for grupo in [cuotas_db, cuotas_servicios_db]:
-        for c in grupo:
-            estado_texto, _, _ = estado_item(c)
+    for c in cuotas_db:
+        estado_texto, _, _ = estado_item(c)
 
-            if c["estado"] == "pagado":
-                cuotas_pagadas += 1
-            elif estado_texto == "Vencido":
-                cuotas_vencidas += 1
-            elif estado_texto == "Próximo a vencer":
-                cuotas_proximas += 1
-            else:
-                cuotas_pendientes += 1
+        if c["estado"] == "pagado":
+            cuotas_pagadas += 1
+        elif estado_texto == "Vencido":
+            cuotas_vencidas += 1
+        elif estado_texto == "Próximo a vencer":
+            cuotas_proximas += 1
+        else:
+            cuotas_pendientes += 1
+
+    servicios_vencidos = 0
+    servicios_por_vencer = 0
+
+    for s in servicios_db:
+        _, color, _ = estado_servicio_mensual(s["dia_pago"])
+
+        if color == "red":
+            servicios_vencidos += 1
+
+        if color == "yellow":
+            servicios_por_vencer += 1
 
     return render_template(
         "dashboard.html",
         total_prestamos=total_prestamos,
         total_servicios=total_servicios,
         cuotas_vencidas=cuotas_vencidas,
-        cuotas_proximas=cuotas_proximas,
+        cuotas_proximas=cuotas_proximas + servicios_por_vencer,
         cuotas_pendientes=cuotas_pendientes,
         cuotas_pagadas=cuotas_pagadas,
-        total_general=total_prestamos + total_servicios
+        total_general=total_prestamos + total_servicios,
+        servicios_vencidos=servicios_vencidos,
+        servicios_por_vencer=servicios_por_vencer
     )
 
 
+init_db()
+
 if __name__ == "__main__":
-    init_db()
     app.run(debug=True)
