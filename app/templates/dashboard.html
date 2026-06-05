@@ -34,21 +34,18 @@
       margin-bottom: 8px;
     }
 
-    .hero-title p {
+    .hero-title p,
+    .section-head p {
       color: #cbd5e1;
     }
 
     .dashboard-section {
-      position: relative;
-      overflow: hidden;
       margin-top: 22px;
       padding: 26px;
       border-radius: 26px;
       background:
-        linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(2, 6, 23, 0.96)),
-        radial-gradient(circle at top right, rgba(56, 189, 248, 0.18), transparent 30%);
+        linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(2, 6, 23, 0.96));
       border: 1px solid rgba(56, 189, 248, 0.32);
-      box-shadow: inset 0 0 35px rgba(56, 189, 248, 0.04);
     }
 
     .section-head {
@@ -59,11 +56,6 @@
       color: #38bdf8;
       font-size: 1.55rem;
       margin-bottom: 8px;
-    }
-
-    .section-head p {
-      color: #cbd5e1;
-      font-size: 0.95rem;
     }
 
     .section-layout {
@@ -80,23 +72,11 @@
     }
 
     .metric-card {
-      position: relative;
       min-height: 120px;
       padding: 20px;
       border-radius: 20px;
-      background:
-        linear-gradient(145deg, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.72));
+      background: linear-gradient(145deg, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.72));
       border: 1px solid rgba(56, 189, 248, 0.28);
-      box-shadow: 0 0 22px rgba(2, 132, 199, 0.07);
-    }
-
-    .metric-card::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-radius: 20px;
-      background: linear-gradient(135deg, rgba(56, 189, 248, 0.08), transparent 55%);
-      pointer-events: none;
     }
 
     .metric-icon {
@@ -109,7 +89,6 @@
       color: #bfdbfe;
       font-size: 0.82rem;
       text-transform: uppercase;
-      letter-spacing: 0.04em;
       margin-bottom: 10px;
     }
 
@@ -117,23 +96,13 @@
       color: #facc15;
       font-size: 1.75rem;
       display: block;
-      line-height: 1;
     }
 
-    .danger-text {
-      color: #fb7185 !important;
-    }
-
-    .warning-text {
-      color: #facc15 !important;
-    }
-
-    .success-text {
-      color: #22c55e !important;
-    }
+    .danger-text { color: #fb7185 !important; }
+    .warning-text { color: #facc15 !important; }
+    .success-text { color: #22c55e !important; }
 
     .robot-panel {
-      min-height: 100%;
       padding: 22px;
       border-radius: 24px;
       background:
@@ -145,8 +114,6 @@
       justify-content: center;
       align-items: center;
       text-align: center;
-      position: relative;
-      overflow: hidden;
     }
 
     .robot {
@@ -207,6 +174,73 @@
       color: #7dd3fc;
       font-size: 0.78rem;
       font-weight: 700;
+    }
+
+    .services-list-panel {
+      margin-top: 22px;
+      padding: 22px;
+      border-radius: 22px;
+      background: rgba(15, 23, 42, 0.82);
+      border: 1px solid rgba(56, 189, 248, 0.28);
+    }
+
+    .services-list-panel h3 {
+      color: #38bdf8;
+      margin-bottom: 16px;
+    }
+
+    .services-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 14px;
+    }
+
+    .service-chip {
+      padding: 16px;
+      border-radius: 16px;
+      background: rgba(2, 6, 23, 0.75);
+      border: 1px solid rgba(125, 211, 252, 0.25);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .service-chip strong {
+      color: #e0f2fe;
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .service-chip span {
+      color: #94a3b8;
+      font-size: 0.82rem;
+    }
+
+    .service-status {
+      padding: 7px 11px;
+      border-radius: 999px;
+      font-weight: 800;
+      font-size: 0.78rem;
+      white-space: nowrap;
+    }
+
+    .service-status.green {
+      color: #22c55e;
+      border: 1px solid #22c55e;
+      background: rgba(34, 197, 94, 0.12);
+    }
+
+    .service-status.yellow {
+      color: #facc15;
+      border: 1px solid #facc15;
+      background: rgba(250, 204, 21, 0.12);
+    }
+
+    .service-status.red {
+      color: #fb7185;
+      border: 1px solid #fb7185;
+      background: rgba(251, 113, 133, 0.12);
     }
 
     .footer-hud {
@@ -339,34 +373,59 @@
     </div>
 
     <div class="section-layout">
-      <div class="metric-grid">
-        <div class="metric-card">
-          <span class="metric-icon">👥</span>
-          <h3>Servicios activos</h3>
-          <strong>{{ cantidad_servicios }}</strong>
+      <div>
+        <div class="metric-grid">
+          <div class="metric-card">
+            <span class="metric-icon">👥</span>
+            <h3>Servicios activos</h3>
+            <strong>{{ cantidad_servicios }}</strong>
+          </div>
+
+          <div class="metric-card">
+            <span class="metric-icon">⌛</span>
+            <h3>Servicios por vencer</h3>
+            <strong class="warning-text">{{ servicios_por_vencer }}</strong>
+          </div>
+
+          <div class="metric-card">
+            <span class="metric-icon">⚠️</span>
+            <h3>Servicios vencidos</h3>
+            <strong class="danger-text">{{ servicios_vencidos }}</strong>
+          </div>
+
+          <div class="metric-card">
+            <span class="metric-icon">🟢</span>
+            <h3>Estado servicios</h3>
+            {% if servicios_vencidos > 0 %}
+              <strong class="danger-text">Revisar</strong>
+            {% elif servicios_por_vencer > 0 %}
+              <strong class="warning-text">Pago cercano</strong>
+            {% else %}
+              <strong class="success-text">Al día</strong>
+            {% endif %}
+          </div>
         </div>
 
-        <div class="metric-card">
-          <span class="metric-icon">⌛</span>
-          <h3>Servicios por vencer</h3>
-          <strong class="warning-text">{{ servicios_por_vencer }}</strong>
-        </div>
+        <div class="services-list-panel">
+          <h3>📌 Servicios activos creados</h3>
 
-        <div class="metric-card">
-          <span class="metric-icon">⚠️</span>
-          <h3>Servicios vencidos</h3>
-          <strong class="danger-text">{{ servicios_vencidos }}</strong>
-        </div>
+          {% if servicios_lista %}
+            <div class="services-list">
+              {% for s in servicios_lista %}
+                <div class="service-chip">
+                  <div>
+                    <strong>{{ s.nombre_servicio }}</strong>
+                    <span>{{ s.proveedor }} · Día {{ s.dia_pago }}</span>
+                  </div>
 
-        <div class="metric-card">
-          <span class="metric-icon">🟢</span>
-          <h3>Estado servicios</h3>
-          {% if servicios_vencidos > 0 %}
-            <strong class="danger-text">Revisar</strong>
-          {% elif servicios_por_vencer > 0 %}
-            <strong class="warning-text">Pago cercano</strong>
+                  <span class="service-status {{ s.color }}">
+                    {{ s.semaforo }}
+                  </span>
+                </div>
+              {% endfor %}
+            </div>
           {% else %}
-            <strong class="success-text">Al día</strong>
+            <p class="empty">No hay servicios activos registrados.</p>
           {% endif %}
         </div>
       </div>
@@ -388,7 +447,7 @@
   <section class="footer-hud">
     <span>🎯 Control separado: préstamos ≠ servicios</span>
     <span>🛡️ Sistema privado de seguimiento financiero</span>
-    <span>⚡ Control Angi Tatiana Cuervo</span>
+    <span>⚡ Control Angi Tatiana</span>
   </section>
 
 </div>

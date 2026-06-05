@@ -633,7 +633,7 @@ def dashboard():
     conn = get_connection()
 
     prestamos_db = conn.execute("SELECT * FROM prestamos").fetchall()
-    servicios_db = conn.execute("SELECT * FROM servicios").fetchall()
+    servicios_db = conn.execute("SELECT * FROM servicios ORDER BY dia_pago ASC").fetchall()
     cuotas_db = conn.execute("SELECT * FROM cuotas").fetchall()
 
     conn.close()
@@ -660,9 +660,10 @@ def dashboard():
 
     servicios_vencidos = 0
     servicios_por_vencer = 0
+    servicios_lista = []
 
     for s in servicios_db:
-        _, color, _ = estado_servicio_mensual(s["dia_pago"])
+        semaforo, color, dias_restantes = estado_servicio_mensual(s["dia_pago"])
 
         if color == "red":
             servicios_vencidos += 1
@@ -670,17 +671,29 @@ def dashboard():
         if color == "yellow":
             servicios_por_vencer += 1
 
+        servicios_lista.append({
+            "nombre_servicio": s["nombre_servicio"],
+            "proveedor": s["proveedor"],
+            "dia_pago": s["dia_pago"],
+            "valor_mensual": s["valor_mensual"],
+            "semaforo": semaforo,
+            "color": color,
+            "dias_restantes": dias_restantes
+        })
+
     return render_template(
         "dashboard.html",
         total_prestamos=total_prestamos,
         total_servicios=total_servicios,
         cuotas_vencidas=cuotas_vencidas,
-        cuotas_proximas=cuotas_proximas + servicios_por_vencer,
+        cuotas_proximas=cuotas_proximas,
         cuotas_pendientes=cuotas_pendientes,
         cuotas_pagadas=cuotas_pagadas,
         total_general=total_prestamos + total_servicios,
         servicios_vencidos=servicios_vencidos,
-        servicios_por_vencer=servicios_por_vencer
+        servicios_por_vencer=servicios_por_vencer,
+        cantidad_servicios=len(servicios_db),
+        servicios_lista=servicios_lista
     )
 
 
