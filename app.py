@@ -192,12 +192,17 @@ def enviar_correo(asunto, mensaje_html, mensaje_texto=None):
     msg.attach(MIMEText(mensaje_texto, "plain", "utf-8"))
     msg.attach(MIMEText(mensaje_html, "html", "utf-8"))
 
-    servidor = smtplib.SMTP("smtp.gmail.com", 587)
-    servidor.starttls()
-    servidor.login(remitente, password)
-    servidor.sendmail(remitente, destinatarios, msg.as_string())
-    servidor.quit()
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as servidor:
+            servidor.login(remitente, password)
+            servidor.sendmail(remitente, destinatarios, msg.as_string())
 
+        print("CORREO_ENVIADO_OK")
+        return True
+
+    except Exception as error:
+        print("ERROR_ENVIANDO_CORREO:", error)
+        raise
 
 def obtener_alertas_vencimientos():
     hoy = date.today()
