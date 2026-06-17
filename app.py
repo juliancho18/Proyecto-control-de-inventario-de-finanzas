@@ -1,8 +1,11 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 import sqlite3
 import os
+import smtplib
 from datetime import date, datetime
 from dateutil.relativedelta import relativedelta
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 app = Flask(__name__, template_folder="app/templates", static_folder="app/static")
 app.secret_key = "clave_desarrollo"
@@ -166,6 +169,185 @@ def crear_cuotas(tabla, id_columna, id_valor, meses, fecha_registro, dia_pago, v
 
     conn.commit()
     conn.close()
+
+
+def enviar_correo(asunto, mensaje_html, mensaje_texto=None):
+    remitente = os.getenv("EMAIL_USER")
+    password = os.getenv("EMAIL_PASSWORD")
+    destino = os.getenv("EMAIL_DESTINO")
+
+    if not remitente or not password or not destino:
+        raise ValueError("Faltan variables de entorno EMAIL_USER, EMAIL_PASSWORD o EMAIL_DESTINO.")
+
+    destinatarios = [correo.strip() for correo in destino.split(",") if correo.strip()]
+
+    msg = MIMEMultipart("alternative")
+    msg["From"] = remitente
+    msg["To"] = ", ".join(destinatarios)
+    msg["Subject"] = asunto
+
+    if not mensaje_texto:
+        mensaje_texto = "Tienes alertas pendientes en el sistema Control Angi Tatiana."
+
+    msg.attach(MIMEText(mensaje_texto, "plain", "utf-8"))
+    msg.attach(MIMEText(mensaje_html, "html", "utf-8"))
+
+    servidor = smtplib.SMTP("smtp.gmail.com", 587)
+    servidor.starttls()
+    servidor.login(remitente, password)
+    servidor.sendmail(remitente, destinatarios, msg.as_string())
+    servidor.quit()
+
+
+def obtener_alertas_vencimientos():
+    hoy = date.today()
+    dias_alerta = int(os.getenv("NOTIFICAR_DIAS", "3"))
+
+    alertas_prestamos = []
+    alertas_servicios = []
+
+    conn = get_connection()
+
+    cuotas = conn.execute("""
+        SELECT 
+            c.id,
+            c.numero_cuota,
+            c.fecha_pago,
+            c.valor_total,
+            c.estado,
+            p.nombre
+        FROM cuotas c
+        INNER JOIN prestamos p ON p.id = c.prestamo_id
+        WHERE c.estado != 'pagado'
+        ORDER BY c.fecha_pago ASC
+    """).fetchall()
+
+    servicios = conn.execute("""
+        SELECT *
+        FROM servicios
+        ORDER BY dia_pago ASC
+    """).fetchall()
+
+    conn.close()
+
+    for c in cuotas:
+        fecha_pago = fecha(c["fecha_pago"])
+        dias = (fecha_pago - hoy).days
+
+        if dias <= dias_alerta:
+            if dias > 0:
+                estado = f"Vence en {dias} día(s)"
+            elif dias == 0:
+                estado = "Vence hoy"
+            else:
+                estado = f"Vencido hace {abs(dias)} día(s)"
+
+            alertas_prestamos.append({
+                "nombre": c["nombre"],
+                "cuota": c["numero_cuota"],
+                "fecha_pago": c["fecha_pago"],
+                "valor": c["valor_total"],
+                "estado": estado
+            })
+
+    for s in servicios:
+        semaforo, color, dias = estado_servicio_mensual(s["dia_pago"])
+
+        if dias <= dias_alerta:
+            if dias > 0:
+                estado = f"Vence en {dias} día(s)"
+            elif dias == 0:
+                estado = "Vence hoy"
+            else:
+                estado = f"Vencido hace {abs(dias)} día(s)"
+
+            alertas_servicios.append({
+                "nombre_servicio": s["nombre_servicio"],
+                "proveedor": s["proveedor"],
+                "dia_pago": s["dia_pago"],
+                "valor_mensual": s["valor_mensual"],
+                "estado": estado
+            })
+
+    return alertas_prestamos, alertas_servicios
+
+
+def construir_correo_alertas(alertas_prestamos, alertas_servicios):
+    filas_prestamos = ""
+    filas_servicios = ""
+
+    for p in alertas_prestamos:
+        filas_prestamos += f"""
+        <tr>
+            <td>{p['nombre']}</td>
+            <td>Cuota {p['cuota']}</td>
+            <td>{p['fecha_pago']}</td>
+            <td>${p['valor']:,.0f}</td>
+            <td><strong>{p['estado']}</strong></td>
+        </tr>
+        """
+
+    for s in alertas_servicios:
+        filas_servicios += f"""
+        <tr>
+            <td>{s['nombre_servicio']}</td>
+            <td>{s['proveedor']}</td>
+            <td>Día {s['dia_pago']}</td>
+            <td>${s['valor_mensual']:,.0f}</td>
+            <td><strong>{s['estado']}</strong></td>
+        </tr>
+        """
+
+    html = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; background:#020617; color:#e5e7eb; padding:24px;">
+        <div style="max-width:850px; margin:auto; background:#0f172a; padding:24px; border-radius:18px; border:1px solid #38bdf8;">
+            <h1 style="color:#38bdf8;">📌 Alertas Control Angi Tatiana</h1>
+            <p>Se detectaron elementos próximos a vencer o vencidos.</p>
+
+            <h2 style="color:#facc15;">💰 Préstamos</h2>
+            <table width="100%" cellpadding="10" cellspacing="0" style="border-collapse:collapse;">
+                <thead>
+                    <tr style="background:#1e293b;">
+                        <th>Persona</th>
+                        <th>Cuota</th>
+                        <th>Fecha</th>
+                        <th>Valor</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {filas_prestamos if filas_prestamos else '<tr><td colspan="5">Sin alertas de préstamos.</td></tr>'}
+                </tbody>
+            </table>
+
+            <h2 style="color:#38bdf8; margin-top:28px;">🧾 Servicios</h2>
+            <table width="100%" cellpadding="10" cellspacing="0" style="border-collapse:collapse;">
+                <thead>
+                    <tr style="background:#1e293b;">
+                        <th>Servicio</th>
+                        <th>Proveedor</th>
+                        <th>Día pago</th>
+                        <th>Valor</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {filas_servicios if filas_servicios else '<tr><td colspan="5">Sin alertas de servicios.</td></tr>'}
+                </tbody>
+            </table>
+
+            <p style="margin-top:28px; color:#94a3b8;">
+                Sistema privado de recordatorios financieros.
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+
+    texto = "Alertas Control Angi Tatiana. Revisa préstamos y servicios próximos a vencer."
+
+    return html, texto
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -362,15 +544,7 @@ def crear_prestamo():
     conn.commit()
     conn.close()
 
-    crear_cuotas(
-        "cuotas",
-        "prestamo_id",
-        prestamo_id,
-        meses,
-        fecha_registro,
-        dia_pago,
-        valor_mensual
-    )
+    crear_cuotas("cuotas", "prestamo_id", prestamo_id, meses, fecha_registro, dia_pago, valor_mensual)
 
     flash("Préstamo creado correctamente.")
     return redirect(url_for("prestamos"))
@@ -695,6 +869,43 @@ def dashboard():
         cantidad_servicios=len(servicios_db),
         servicios_lista=servicios_lista
     )
+
+
+@app.route("/probar_correo")
+def probar_correo():
+    try:
+        enviar_correo(
+            "Prueba de correo - Control Angi Tatiana",
+            """
+            <h2>✅ Prueba exitosa</h2>
+            <p>El sistema Control Angi Tatiana ya puede enviar correos desde Render.</p>
+            """,
+            "Prueba exitosa. El sistema ya puede enviar correos desde Render."
+        )
+        return "Correo de prueba enviado correctamente."
+    except Exception as e:
+        return f"Error enviando correo: {e}", 500
+
+
+@app.route("/revisar_vencimientos")
+def revisar_vencimientos():
+    try:
+        alertas_prestamos, alertas_servicios = obtener_alertas_vencimientos()
+
+        if not alertas_prestamos and not alertas_servicios:
+            return "No hay alertas para enviar."
+
+        html, texto = construir_correo_alertas(alertas_prestamos, alertas_servicios)
+
+        enviar_correo(
+            "Alertas de vencimiento - Control Angi Tatiana",
+            html,
+            texto
+        )
+
+        return "Alertas enviadas correctamente."
+    except Exception as e:
+        return f"Error revisando vencimientos: {e}", 500
 
 
 init_db()
