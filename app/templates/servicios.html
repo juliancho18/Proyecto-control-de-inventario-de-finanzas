@@ -63,6 +63,7 @@
           <th>Próximo pago</th>
           <th>Días restantes</th>
           <th>Semáforo</th>
+          <th>Pago del mes</th>
           <th>Acciones</th>
         </tr>
       </thead>
@@ -77,7 +78,9 @@
           <td>{{ s.proxima_fecha }}</td>
 
           <td>
-            {% if s.dias_restantes > 0 %}
+            {% if s.pagado_mes_actual %}
+              Pagado este mes
+            {% elif s.dias_restantes > 0 %}
               Faltan {{ s.dias_restantes }} días
             {% elif s.dias_restantes == 0 %}
               Vence hoy
@@ -88,6 +91,16 @@
 
           <td>
             <span class="status {{ s.color }}">{{ s.semaforo }}</span>
+          </td>
+
+          <td>
+            <form action="{{ url_for('actualizar_pago_servicio', id=s.id) }}" method="POST" class="payment-form">
+              <select name="estado_pago" class="payment-select">
+                <option value="pendiente" {% if s.estado_pago_mes == 'pendiente' %}selected{% endif %}>Pendiente</option>
+                <option value="pagado" {% if s.estado_pago_mes == 'pagado' %}selected{% endif %}>Pagado</option>
+              </select>
+              <button class="btn-paid" type="submit">Guardar</button>
+            </form>
           </td>
 
           <td class="actions">
@@ -103,7 +116,7 @@
         </tr>
         {% else %}
         <tr>
-          <td colspan="8" class="empty">No hay servicios registrados todavía.</td>
+          <td colspan="9" class="empty">No hay servicios registrados todavía.</td>
         </tr>
         {% endfor %}
       </tbody>

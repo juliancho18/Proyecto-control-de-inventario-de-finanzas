@@ -82,6 +82,18 @@ def init_db():
         )
     """)
 
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS pagos_servicios_mensuales (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            servicio_id INTEGER NOT NULL,
+            mes_pago TEXT NOT NULL,
+            estado TEXT DEFAULT 'pagado',
+            fecha_marcado TEXT NOT NULL,
+            UNIQUE(servicio_id, mes_pago),
+            FOREIGN KEY(servicio_id) REFERENCES servicios(id)
+        )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -103,6 +115,10 @@ def fecha(fecha_str):
     return datetime.strptime(fecha_str, "%Y-%m-%d").date()
 
 
+def mes_actual_clave():
+    return date.today().strftime("%Y-%m")
+
+
 def estado_item(item):
     hoy = date.today()
     fecha_pago = fecha(item["fecha_pago"])
@@ -121,12 +137,15 @@ def estado_item(item):
     return "Pendiente", "blue", 0
 
 
-def estado_servicio_mensual(dia_pago):
+def estado_servicio_mensual(dia_pago, pagado_mes=False):
     hoy = date.today()
     dia_actual = hoy.day
     dia_pago = int(dia_pago)
 
     dias_restantes = dia_pago - dia_actual
+
+    if pagado_mes:
+        return "Pagado este mes", "green", dias_restantes
 
     if dias_restantes > 2:
         return "Al día", "green", dias_restantes
@@ -223,9 +242,23 @@ def enviar_correo(asunto, mensaje_html, mensaje_texto=None):
         raise
 
 
+def obtener_ids_servicios_pagados_mes(conn, mes_pago=None):
+    if not mes_pago:
+        mes_pago = mes_actual_clave()
+
+    pagos = conn.execute("""
+        SELECT servicio_id
+        FROM pagos_servicios_mensuales
+        WHERE mes_pago = ? AND estado = 'pagado'
+    """, (mes_pago,)).fetchall()
+
+    return {p["servicio_id"] for p in pagos}
+
+
 def obtener_alertas_vencimientos():
     hoy = date.today()
     dias_alerta = int(os.getenv("NOTIFICAR_DIAS", "3"))
+    mes_pago = mes_actual_clave()
 
     alertas_prestamos = []
     alertas_servicios = []
@@ -252,6 +285,8 @@ def obtener_alertas_vencimientos():
         ORDER BY dia_pago ASC
     """).fetchall()
 
+    servicios_pagados_mes = obtener_ids_servicios_pagados_mes(conn, mes_pago)
+
     conn.close()
 
     for c in cuotas:
@@ -275,7 +310,10 @@ def obtener_alertas_vencimientos():
             })
 
     for s in servicios:
-        semaforo, color, dias = estado_servicio_mensual(s["dia_pago"])
+        if s["id"] in servicios_pagados_mes:
+            continue
+
+        semaforo, color, dias = estado_servicio_mensual(s["dia_pago"], pagado_mes=False)
 
         if dias <= dias_alerta:
             if dias > 0:
@@ -370,6 +408,109 @@ def construir_correo_alertas(alertas_prestamos, alertas_servicios):
     """
 
     texto = "Alertas Control Angi Tatiana. Revisa préstamos y servicios próximos a vencer."
+
+    return html, texto
+
+
+def construir_correo_resumen_actualizado():
+    conn = get_connection()
+
+    prestamos_db = conn.execute("SELECT * FROM prestamos ORDER BY id DESC").fetchall()
+    servicios_db = conn.execute("SELECT * FROM servicios ORDER BY dia_pago ASC").fetchall()
+    cuotas_db = conn.execute("SELECT * FROM cuotas").fetchall()
+    servicios_pagados_mes = obtener_ids_servicios_pagados_mes(conn)
+
+    conn.close()
+
+    total_prestamos = sum(p["valor_prestado"] for p in prestamos_db)
+    total_servicios = sum(s["valor_mensual"] for s in servicios_db)
+    deuda_pendiente = sum(c["valor_total"] for c in cuotas_db if c["estado"] != "pagado")
+
+    cuotas_pagadas = sum(1 for c in cuotas_db if c["estado"] == "pagado")
+    cuotas_pendientes = sum(1 for c in cuotas_db if c["estado"] != "pagado")
+
+    servicios_pagados = 0
+    servicios_pendientes = 0
+    filas_servicios = ""
+
+    for s in servicios_db:
+        pagado_mes = s["id"] in servicios_pagados_mes
+        semaforo, color, dias = estado_servicio_mensual(s["dia_pago"], pagado_mes)
+
+        if pagado_mes:
+            servicios_pagados += 1
+            estado_pago = "Pagado este mes"
+        else:
+            servicios_pendientes += 1
+            if dias > 0:
+                estado_pago = f"Pendiente - vence en {dias} día(s)"
+            elif dias == 0:
+                estado_pago = "Pendiente - vence hoy"
+            else:
+                estado_pago = f"Pendiente - vencido hace {abs(dias)} día(s)"
+
+        filas_servicios += f"""
+        <tr>
+            <td>{s['nombre_servicio']}</td>
+            <td>{s['proveedor']}</td>
+            <td>Día {s['dia_pago']}</td>
+            <td>${s['valor_mensual']:,.0f}</td>
+            <td><strong>{estado_pago}</strong></td>
+        </tr>
+        """
+
+    alertas_prestamos, alertas_servicios = obtener_alertas_vencimientos()
+    total_alertas = len(alertas_prestamos) + len(alertas_servicios)
+
+    html = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; background:#020617; color:#e5e7eb; padding:24px;">
+        <div style="max-width:900px; margin:auto; background:#0f172a; padding:24px; border-radius:18px; border:1px solid #38bdf8;">
+            <h1 style="color:#38bdf8;">📊 Resumen actualizado - Control Angi Tatiana</h1>
+            <p>Este es el estado actualizado del sistema financiero.</p>
+
+            <h2 style="color:#facc15;">Indicadores generales</h2>
+            <ul>
+                <li><strong>Total prestado registrado:</strong> ${total_prestamos:,.0f}</li>
+                <li><strong>Deuda pendiente en cuotas:</strong> ${deuda_pendiente:,.0f}</li>
+                <li><strong>Total mensual de servicios:</strong> ${total_servicios:,.0f}</li>
+                <li><strong>Cuotas pagadas:</strong> {cuotas_pagadas}</li>
+                <li><strong>Cuotas pendientes:</strong> {cuotas_pendientes}</li>
+                <li><strong>Servicios pagados este mes:</strong> {servicios_pagados}</li>
+                <li><strong>Servicios pendientes este mes:</strong> {servicios_pendientes}</li>
+                <li><strong>Alertas activas:</strong> {total_alertas}</li>
+            </ul>
+
+            <h2 style="color:#38bdf8; margin-top:28px;">🧾 Servicios registrados</h2>
+            <table width="100%" cellpadding="10" cellspacing="0" style="border-collapse:collapse;">
+                <thead>
+                    <tr style="background:#1e293b;">
+                        <th>Servicio</th>
+                        <th>Proveedor</th>
+                        <th>Día pago</th>
+                        <th>Valor</th>
+                        <th>Estado mensual</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {filas_servicios if filas_servicios else '<tr><td colspan="5">Sin servicios registrados.</td></tr>'}
+                </tbody>
+            </table>
+
+            <p style="margin-top:28px; color:#94a3b8;">
+                Correo generado manualmente desde el Panel Principal.
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+
+    texto = (
+        "Resumen actualizado Control Angi Tatiana. "
+        f"Total servicios mensual: {total_servicios:,.0f}. "
+        f"Deuda pendiente en cuotas: {deuda_pendiente:,.0f}. "
+        f"Alertas activas: {total_alertas}."
+    )
 
     return html, texto
 
@@ -471,6 +612,25 @@ def menu():
         return redirect(url_for("login"))
 
     return render_template("menu.html")
+
+
+@app.route("/enviar_resumen_correo", methods=["POST"])
+def enviar_resumen_correo():
+    if not login_required():
+        return redirect(url_for("login"))
+
+    try:
+        html, texto = construir_correo_resumen_actualizado()
+        enviar_correo(
+            "Resumen actualizado - Control Angi Tatiana",
+            html,
+            texto
+        )
+        flash("Resumen actualizado enviado correctamente al correo.")
+    except Exception as e:
+        flash(f"No se pudo enviar el resumen por correo: {e}")
+
+    return redirect(url_for("menu"))
 
 
 @app.route("/prestamos")
@@ -619,27 +779,34 @@ def servicios():
     servicios_raw = conn.execute(
         "SELECT * FROM servicios ORDER BY dia_pago ASC"
     ).fetchall()
+
+    servicios_pagados_mes = obtener_ids_servicios_pagados_mes(conn)
     conn.close()
 
     lista = []
     servicios_vencidos = 0
     servicios_por_vencer = 0
+    servicios_pagados = 0
 
     for s in servicios_raw:
         item = dict(s)
+        pagado_mes = item["id"] in servicios_pagados_mes
 
-        semaforo, color, dias_restantes = estado_servicio_mensual(item["dia_pago"])
+        semaforo, color, dias_restantes = estado_servicio_mensual(item["dia_pago"], pagado_mes)
         proxima_fecha = proxima_fecha_servicio(item["dia_pago"])
 
         item["semaforo"] = semaforo
         item["color"] = color
         item["dias_restantes"] = dias_restantes
         item["proxima_fecha"] = proxima_fecha.strftime("%Y-%m-%d")
+        item["pagado_mes_actual"] = pagado_mes
+        item["estado_pago_mes"] = "pagado" if pagado_mes else "pendiente"
 
-        if color == "red":
+        if pagado_mes:
+            servicios_pagados += 1
+        elif color == "red":
             servicios_vencidos += 1
-
-        if color == "yellow":
+        elif color == "yellow":
             servicios_por_vencer += 1
 
         lista.append(item)
@@ -650,7 +817,8 @@ def servicios():
         cantidad_servicios=len(lista),
         total_mensual=sum(s["valor_mensual"] for s in lista),
         servicios_vencidos=servicios_vencidos,
-        servicios_por_vencer=servicios_por_vencer
+        servicios_por_vencer=servicios_por_vencer,
+        servicios_pagados=servicios_pagados
     )
 
 
@@ -688,6 +856,47 @@ def crear_servicio():
     return redirect(url_for("servicios"))
 
 
+@app.route("/actualizar_pago_servicio/<int:id>", methods=["POST"])
+def actualizar_pago_servicio(id):
+    if not login_required():
+        return redirect(url_for("login"))
+
+    estado_pago = request.form.get("estado_pago", "pendiente")
+    mes_pago = mes_actual_clave()
+    hoy = date.today().strftime("%Y-%m-%d")
+
+    conn = get_connection()
+
+    servicio = conn.execute(
+        "SELECT * FROM servicios WHERE id = ?",
+        (id,)
+    ).fetchone()
+
+    if not servicio:
+        conn.close()
+        flash("Servicio no encontrado.")
+        return redirect(url_for("servicios"))
+
+    if estado_pago == "pagado":
+        conn.execute("""
+            INSERT OR REPLACE INTO pagos_servicios_mensuales
+            (servicio_id, mes_pago, estado, fecha_marcado)
+            VALUES (?, ?, ?, ?)
+        """, (id, mes_pago, "pagado", hoy))
+        flash("Servicio marcado como pagado para el mes actual.")
+    else:
+        conn.execute("""
+            DELETE FROM pagos_servicios_mensuales
+            WHERE servicio_id = ? AND mes_pago = ?
+        """, (id, mes_pago))
+        flash("Servicio devuelto a pendiente para el mes actual.")
+
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("servicios"))
+
+
 @app.route("/detalle_servicio/<int:id>")
 def detalle_servicio(id):
     if not login_required():
@@ -700,6 +909,7 @@ def detalle_servicio(id):
         (id,)
     ).fetchone()
 
+    servicios_pagados_mes = obtener_ids_servicios_pagados_mes(conn)
     conn.close()
 
     if not servicio_raw:
@@ -707,14 +917,17 @@ def detalle_servicio(id):
         return redirect(url_for("servicios"))
 
     servicio = dict(servicio_raw)
+    pagado_mes = servicio["id"] in servicios_pagados_mes
 
-    semaforo, color, dias_restantes = estado_servicio_mensual(servicio["dia_pago"])
+    semaforo, color, dias_restantes = estado_servicio_mensual(servicio["dia_pago"], pagado_mes)
     proxima_fecha = proxima_fecha_servicio(servicio["dia_pago"])
 
     servicio["semaforo"] = semaforo
     servicio["color"] = color
     servicio["dias_restantes"] = dias_restantes
     servicio["proxima_fecha"] = proxima_fecha.strftime("%Y-%m-%d")
+    servicio["pagado_mes_actual"] = pagado_mes
+    servicio["estado_pago_mes"] = "pagado" if pagado_mes else "pendiente"
 
     return render_template(
         "detalle_servicio.html",
@@ -728,7 +941,7 @@ def pagar(tipo, id):
         return redirect(url_for("login"))
 
     if tipo != "prestamo":
-        flash("Los servicios mensuales no manejan cuotas individuales.")
+        flash("Los servicios mensuales se pagan desde el selector del módulo Servicios.")
         return redirect(url_for("servicios"))
 
     conn = get_connection()
@@ -754,7 +967,7 @@ def editar_cuota(tipo, id):
         return redirect(url_for("login"))
 
     if tipo != "prestamo":
-        flash("Los servicios mensuales no manejan cuotas individuales.")
+        flash("Los servicios mensuales se gestionan desde el selector del módulo Servicios.")
         return redirect(url_for("servicios"))
 
     fecha_pago = request.form["fecha_pago"]
@@ -807,6 +1020,7 @@ def borrar(tipo, id):
         destino = "prestamos"
 
     elif tipo == "servicio":
+        conn.execute("DELETE FROM pagos_servicios_mensuales WHERE servicio_id = ?", (id,))
         conn.execute("DELETE FROM cuotas_servicios WHERE servicio_id = ?", (id,))
         conn.execute("DELETE FROM servicios WHERE id = ?", (id,))
         destino = "servicios"
@@ -833,6 +1047,7 @@ def dashboard():
     prestamos_db = conn.execute("SELECT * FROM prestamos").fetchall()
     servicios_db = conn.execute("SELECT * FROM servicios ORDER BY dia_pago ASC").fetchall()
     cuotas_db = conn.execute("SELECT * FROM cuotas").fetchall()
+    servicios_pagados_mes = obtener_ids_servicios_pagados_mes(conn)
 
     conn.close()
 
@@ -858,15 +1073,18 @@ def dashboard():
 
     servicios_vencidos = 0
     servicios_por_vencer = 0
+    servicios_pagados = 0
     servicios_lista = []
 
     for s in servicios_db:
-        semaforo, color, dias_restantes = estado_servicio_mensual(s["dia_pago"])
+        pagado_mes = s["id"] in servicios_pagados_mes
+        semaforo, color, dias_restantes = estado_servicio_mensual(s["dia_pago"], pagado_mes)
 
-        if color == "red":
+        if pagado_mes:
+            servicios_pagados += 1
+        elif color == "red":
             servicios_vencidos += 1
-
-        if color == "yellow":
+        elif color == "yellow":
             servicios_por_vencer += 1
 
         servicios_lista.append({
@@ -876,7 +1094,8 @@ def dashboard():
             "valor_mensual": s["valor_mensual"],
             "semaforo": semaforo,
             "color": color,
-            "dias_restantes": dias_restantes
+            "dias_restantes": dias_restantes,
+            "pagado_mes_actual": pagado_mes
         })
 
     return render_template(
@@ -890,6 +1109,7 @@ def dashboard():
         total_general=total_prestamos + total_servicios,
         servicios_vencidos=servicios_vencidos,
         servicios_por_vencer=servicios_por_vencer,
+        servicios_pagados=servicios_pagados,
         cantidad_servicios=len(servicios_db),
         servicios_lista=servicios_lista
     )

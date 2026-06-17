@@ -70,6 +70,8 @@ header p {
   margin-bottom: 25px;
   display: flex;
   justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .section-title {
@@ -169,6 +171,12 @@ td {
   border: 1px solid #facc15;
 }
 
+.blue {
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+  border: 1px solid #38bdf8;
+}
+
 .empty {
   text-align: center;
   color: #94a3b8;
@@ -239,20 +247,6 @@ form .btn-primary {
   margin-top: 22px;
 }
 
-@media (max-width: 950px) {
-  .dashboard {
-    grid-template-columns: 1fr;
-  }
-
-  .main-actions {
-    justify-content: center;
-  }
-
-  table {
-    display: block;
-    overflow-x: auto;
-  }
-}
 .resultado-calculo {
   margin-top: 18px;
   padding: 16px;
@@ -273,14 +267,60 @@ form .btn-primary {
   font-size: 1.2rem;
   margin-top: 4px;
 }
+
 .btn-admin {
   background: #a855f7;
   color: white;
   margin-left: 10px;
 }
 
-.blue {
-  background: rgba(56, 189, 248, 0.2);
-  color: #38bdf8;
-  border: 1px solid #38bdf8;
+.payment-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 220px;
+}
+
+.payment-form .payment-select {
+  min-width: 125px;
+  margin-top: 0;
+  padding: 9px;
+}
+
+.payment-form .btn-paid {
+  padding: 9px 12px;
+  white-space: nowrap;
+}
+
+.btn-email-future {
+  background: linear-gradient(135deg, #06b6d4, #2563eb);
+  color: white;
+  padding: 13px 24px;
+  border-radius: 16px;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow: 0 0 22px rgba(56,189,248,0.22);
+}
+
+.btn-email-form {
+  display: inline-block;
+}
+
+@media (max-width: 950px) {
+  .dashboard {
+    grid-template-columns: 1fr;
+  }
+
+  .main-actions {
+    justify-content: center;
+  }
+
+  table {
+    display: block;
+    overflow-x: auto;
+  }
+
+  .payment-form {
+    min-width: 180px;
+  }
 }
