@@ -1,14 +1,12 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 import sqlite3
 import os
-import smtplib
+import requests
 from datetime import date, datetime
 from dateutil.relativedelta import relativedelta
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 
 app = Flask(__name__, template_folder="app/templates", static_folder="app/static")
-app.secret_key = "clave_desarrollo"
+app.secret_key = os.getenv("SECRET_KEY", "clave_desarrollo")
 
 DB_PATH = "instance/finanzas.db"
 
@@ -172,37 +170,58 @@ def crear_cuotas(tabla, id_columna, id_valor, meses, fecha_registro, dia_pago, v
 
 
 def enviar_correo(asunto, mensaje_html, mensaje_texto=None):
-    remitente = os.getenv("EMAIL_USER")
-    password = os.getenv("EMAIL_PASSWORD")
     destino = os.getenv("EMAIL_DESTINO")
+    email_api_url = os.getenv("EMAIL_API_URL")
+    email_api_token = os.getenv("EMAIL_API_TOKEN")
 
-    if not remitente or not password or not destino:
-        raise ValueError("Faltan variables de entorno EMAIL_USER, EMAIL_PASSWORD o EMAIL_DESTINO.")
+    if not destino:
+        raise ValueError("Falta la variable EMAIL_DESTINO en Render.")
 
-    destinatarios = [correo.strip() for correo in destino.split(",") if correo.strip()]
+    if not email_api_url:
+        raise ValueError("Falta la variable EMAIL_API_URL en Render.")
 
-    msg = MIMEMultipart("alternative")
-    msg["From"] = remitente
-    msg["To"] = ", ".join(destinatarios)
-    msg["Subject"] = asunto
+    if not email_api_token:
+        raise ValueError("Falta la variable EMAIL_API_TOKEN en Render.")
 
     if not mensaje_texto:
         mensaje_texto = "Tienes alertas pendientes en el sistema Control Angi Tatiana."
 
-    msg.attach(MIMEText(mensaje_texto, "plain", "utf-8"))
-    msg.attach(MIMEText(mensaje_html, "html", "utf-8"))
+    payload = {
+        "token": email_api_token,
+        "to": destino,
+        "subject": asunto,
+        "text": mensaje_texto,
+        "html": mensaje_html
+    }
 
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as servidor:
-            servidor.login(remitente, password)
-            servidor.sendmail(remitente, destinatarios, msg.as_string())
+        respuesta = requests.post(email_api_url, json=payload, timeout=20)
+
+        print("RESPUESTA_EMAIL_API_STATUS:", respuesta.status_code)
+        print("RESPUESTA_EMAIL_API_TEXT:", respuesta.text)
+
+        if respuesta.status_code != 200:
+            raise Exception(f"Error HTTP enviando correo por API: {respuesta.status_code} - {respuesta.text}")
+
+        try:
+            data = respuesta.json()
+        except Exception:
+            raise Exception(f"La API de correo no devolvió JSON válido: {respuesta.text}")
+
+        if not data.get("ok"):
+            raise Exception(f"Error en Google Apps Script: {data}")
 
         print("CORREO_ENVIADO_OK")
         return True
 
+    except requests.exceptions.RequestException as error:
+        print("ERROR_CONECTANDO_EMAIL_API:", error)
+        raise
+
     except Exception as error:
         print("ERROR_ENVIANDO_CORREO:", error)
         raise
+
 
 def obtener_alertas_vencimientos():
     hoy = date.today()
@@ -883,9 +902,9 @@ def probar_correo():
             "Prueba de correo - Control Angi Tatiana",
             """
             <h2>✅ Prueba exitosa</h2>
-            <p>El sistema Control Angi Tatiana ya puede enviar correos desde Render.</p>
+            <p>El sistema Control Angi Tatiana ya puede enviar correos desde Render usando API HTTPS.</p>
             """,
-            "Prueba exitosa. El sistema ya puede enviar correos desde Render."
+            "Prueba exitosa. El sistema ya puede enviar correos desde Render usando API HTTPS."
         )
         return "Correo de prueba enviado correctamente."
     except Exception as e:
